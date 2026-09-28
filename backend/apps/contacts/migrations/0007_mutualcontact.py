@@ -3,6 +3,45 @@
 from django.db import migrations, models
 
 
+def create_mutualcontact_table(apps, schema_editor):
+    if schema_editor.connection.vendor == 'sqlite':
+        schema_editor.execute("""
+            CREATE TABLE IF NOT EXISTS contacts_mutualcontact (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email VARCHAR(255) NOT NULL,
+                first_name VARCHAR(255) NOT NULL DEFAULT '',
+                last_name VARCHAR(255) NOT NULL DEFAULT '',
+                who_is_importing VARCHAR(255) NOT NULL DEFAULT '',
+                target_list_name VARCHAR(255) NOT NULL DEFAULT '',
+                already_exists_in VARCHAR(255) NOT NULL DEFAULT '',
+                reason TEXT NOT NULL DEFAULT 'Mutual: already exists in another list',
+                imported_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        schema_editor.execute("CREATE INDEX IF NOT EXISTS contacts_mutualcontact_email_idx ON contacts_mutualcontact (email);")
+        schema_editor.execute("CREATE INDEX IF NOT EXISTS contacts_mutualcontact_imported_at_idx ON contacts_mutualcontact (imported_at);")
+    else:
+        schema_editor.execute("""
+            CREATE TABLE IF NOT EXISTS contacts_mutualcontact (
+                id BIGSERIAL PRIMARY KEY,
+                email VARCHAR(255) NOT NULL,
+                first_name VARCHAR(255) NOT NULL DEFAULT '',
+                last_name VARCHAR(255) NOT NULL DEFAULT '',
+                who_is_importing VARCHAR(255) NOT NULL DEFAULT '',
+                target_list_name VARCHAR(255) NOT NULL DEFAULT '',
+                already_exists_in VARCHAR(255) NOT NULL DEFAULT '',
+                reason TEXT NOT NULL DEFAULT 'Mutual: already exists in another list',
+                imported_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS contacts_mutualcontact_email_idx ON contacts_mutualcontact (email);
+            CREATE INDEX IF NOT EXISTS contacts_mutualcontact_imported_at_idx ON contacts_mutualcontact (imported_at DESC);
+        """)
+
+
+def drop_mutualcontact_table(apps, schema_editor):
+    schema_editor.execute("DROP TABLE IF EXISTS contacts_mutualcontact;")
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -31,24 +70,7 @@ class Migration(migrations.Migration):
                 ),
             ],
             database_operations=[
-                migrations.RunSQL(
-                    sql="""
-                    CREATE TABLE IF NOT EXISTS contacts_mutualcontact (
-                        id BIGSERIAL PRIMARY KEY,
-                        email VARCHAR(255) NOT NULL,
-                        first_name VARCHAR(255) NOT NULL DEFAULT '',
-                        last_name VARCHAR(255) NOT NULL DEFAULT '',
-                        who_is_importing VARCHAR(255) NOT NULL DEFAULT '',
-                        target_list_name VARCHAR(255) NOT NULL DEFAULT '',
-                        already_exists_in VARCHAR(255) NOT NULL DEFAULT '',
-                        reason TEXT NOT NULL DEFAULT 'Mutual: already exists in another list',
-                        imported_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-                    );
-                    CREATE INDEX IF NOT EXISTS contacts_mutualcontact_email_idx ON contacts_mutualcontact (email);
-                    CREATE INDEX IF NOT EXISTS contacts_mutualcontact_imported_at_idx ON contacts_mutualcontact (imported_at DESC);
-                    """,
-                    reverse_sql="DROP TABLE IF EXISTS contacts_mutualcontact;",
-                ),
+                migrations.RunPython(create_mutualcontact_table, drop_mutualcontact_table),
             ],
         ),
     ]

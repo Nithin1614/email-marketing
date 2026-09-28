@@ -78,7 +78,7 @@ def ensure_db_schema():
 
 ensure_db_schema()
 
-router = DefaultRouter()
+router = DefaultRouter(trailing_slash=r'/?')
 router.register(r'contacts', ContactViewSet, basename='contact')
 router.register(r'contact-lists', ContactListViewSet, basename='contactlist')
 router.register(r'ignored-contacts', IgnoredContactViewSet, basename='ignoredcontact')
@@ -97,6 +97,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include(router.urls)),
     path('api/v1/auth/token/', obtain_auth_token, name='api_token_auth'),
+    path('api/v1/auth/token', obtain_auth_token, name='api_token_auth_no_slash'),
     path('api/v1/senders/', SenderListView.as_view(), name='sender-list'),
     path('api/v1/webhooks/brevo/', BrevoWebhookView.as_view(), name='brevo-webhook'),
     path('api/v1/webhooks/brevo', BrevoWebhookView.as_view(), name='brevo-webhook-no-slash'),
