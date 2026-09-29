@@ -16,8 +16,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
 from rest_framework.routers import DefaultRouter
 from rest_framework.authtoken.views import obtain_auth_token
+
+def health_check(request):
+    return JsonResponse({"status": "ok", "app": "email-marketing"})
 
 from apps.contacts.views import ContactViewSet, ContactListViewSet, IgnoredContactViewSet, ContactBatchViewSet, MutualContactViewSet
 from apps.templates.views import EmailTemplateViewSet
@@ -94,6 +98,10 @@ router.register(r'campaign-analytics', CampaignAnalyticsViewSet, basename='campa
 router.register(r'bounces', BouncedEmailViewSet, basename='bouncedemail')
 
 urlpatterns = [
+    path('api/health/', health_check, name='health_check'),
+    path('api/health', health_check, name='health_check_no_slash'),
+    path('healthz/', health_check, name='healthz'),
+    path('healthz', health_check, name='healthz_no_slash'),
     path('admin/', admin.site.urls),
     path('api/v1/', include(router.urls)),
     path('api/v1/auth/token/', obtain_auth_token, name='api_token_auth'),

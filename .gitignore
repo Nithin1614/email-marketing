@@ -38,3 +38,9 @@ env/
 .env
 .env.*
 !.env.example
+
+# Static and build files
+staticfiles/
+backend/staticfiles/
+frontend/.next/
+
