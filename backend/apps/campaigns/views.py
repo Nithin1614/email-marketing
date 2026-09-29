@@ -19,11 +19,7 @@ class SenderListView(APIView):
 
     def get(self, request):
         fallback_senders = [
-            {"name": "Signature Talks", "email": "global@signaturetalks.org"},
-            {"name": "WYNx Talks", "email": "info@wynxtalks.com"},
-            {"name": "Voice Talks", "email": "info@voicetalks.org"},
-            {"name": "ICON Conferences", "email": "contact@iconconferences.org"},
-            {"name": "IDIAS", "email": "contact@idias.org"},
+            {"name": "Web Design Team", "email": "webdesign.team24@gmail.com"},
         ]
 
         brevo_api_key = getattr(settings, 'BREVO_API_KEY', None)

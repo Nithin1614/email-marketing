@@ -85,28 +85,24 @@ def send_campaign_emails(self, campaign_id: int):
             sender = campaign.podcast_sender
             if not sender:
                 from apps.campaigns.models import PodcastSender
-                email_lower = campaign.from_email.lower()
-                mapping = {
-                    'signature': 'SIGNATURE',
-                    'wynxtalks': 'WYNXTALKS',
-                    'voicetalks': 'VOICETALKS',
-                    'icon': 'ICON',
-                    'idias': 'IDiAS',
-                    'next': 'NEXT',
-                    'wyn': 'WYN'
-                }
-                for key, val in mapping.items():
-                    if key in email_lower:
-                        sender = PodcastSender.objects.filter(name__iexact=val).first()
-                        break
+                sender = PodcastSender.objects.first()
 
             if sender:
                 context.update({
                     'brand_name': sender.name,
                     'website_url': sender.website_url,
                     'linkedin_url': sender.linkedin_url,
-                    'scheduling_link': 'https://calendly.com/drppodcasts/30min',
+                    'scheduling_link': getattr(sender, 'scheduling_link', 'https://calendly.com'),
                     'physical_address': sender.physical_address,
+                    'current_year': str(timezone.now().year),
+                })
+            else:
+                context.update({
+                    'brand_name': 'Web Design Team',
+                    'website_url': 'https://webdesign.com',
+                    'linkedin_url': '',
+                    'scheduling_link': 'https://calendly.com',
+                    'physical_address': '',
                     'current_year': str(timezone.now().year),
                 })
             
