@@ -77,9 +77,21 @@ class CampaignViewSet(viewsets.ModelViewSet):
         campaign.status = 'sending'
         campaign.save()
 
-        # Trigger the async Celery task
+        # Trigger the send in a background daemon thread so it runs immediately without needing a separate Celery worker
         from .tasks import send_campaign_emails
-        send_campaign_emails.delay(campaign.id)
+        from django.db import close_old_connections
+        import threading
+
+        def run_send_task():
+            close_old_connections()
+            try:
+                send_campaign_emails(campaign.id)
+            except Exception as e:
+                logger.error("Error in background send task: %s", e)
+            finally:
+                close_old_connections()
+
+        threading.Thread(target=run_send_task, daemon=True).start()
 
         return Response({'status': 'Campaign queued for sending.'})
 
