@@ -219,7 +219,7 @@ export default function ScheduleModal({
           </div>
 
           <div className="p-3 bg-foreground/5 rounded-lg border border-border/50 text-[11px] text-foreground/60 leading-relaxed">
-            ⏰ <strong>Automated Delivery:</strong> Once scheduled, our cloud scheduler will automatically dispatch your campaign at this exact time 24/7 even if your browser is closed.
+            Emails will be sent automatically at the selected date and time.
           </div>
 
           {/* Footer Actions */}

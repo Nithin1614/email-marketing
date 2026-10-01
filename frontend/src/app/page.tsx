@@ -186,7 +186,7 @@ export default function DashboardPage() {
             <span>Name</span>
             <span>Status</span>
             <span>Target List</span>
-            <span>Sent At</span>
+            <span>Sent / Scheduled</span>
           </div>
           {loading ? (
             <div className="text-sm text-foreground/40 py-6 text-center">Loading recent campaigns...</div>
@@ -197,7 +197,10 @@ export default function DashboardPage() {
           ) : (
             <div className="divide-y divide-border">
               {recentCampaigns.map((campaign) => {
-                const dateObj = campaign.sent_at ? new Date(campaign.sent_at) : null;
+                const isScheduled = campaign.status === 'scheduled';
+                const dateObj = isScheduled && campaign.scheduled_at
+                  ? new Date(campaign.scheduled_at)
+                  : campaign.sent_at ? new Date(campaign.sent_at) : null;
                 const dateStr = dateObj ? `${dateObj.getDate()}-${dateObj.getMonth() + 1}-${dateObj.getFullYear().toString().slice(-2)}` : '—';
                 
                 return (
@@ -208,11 +211,11 @@ export default function DashboardPage() {
                         <span className="font-medium text-foreground">{campaign.name}</span>
                       </div>
                       <div className="flex flex-col md:block md:col-span-1 md:mt-0">
-                        <span className="capitalize text-xs font-semibold px-2.5 py-0.5 rounded-full inline-block border bg-background/50 shadow-sm" style={{
-                          borderColor: campaign.status === 'sent' ? 'var(--foreground)' : 'var(--border)',
-                          color: campaign.status === 'sent' ? 'var(--foreground)' : 'currentColor',
-                          opacity: campaign.status === 'sent' ? 1 : 0.7
-                        }}>{campaign.status}</span>
+                        <span className={`capitalize text-xs font-semibold px-2.5 py-0.5 rounded-full inline-block border ${
+                          campaign.status === 'sent' ? 'border-foreground text-foreground' :
+                          campaign.status === 'scheduled' ? 'border-indigo-500/30 text-indigo-400 bg-indigo-500/10' :
+                          'border-border text-foreground/70 bg-background/50'
+                        }`}>{campaign.status}</span>
                       </div>
                     </div>
                     
@@ -223,8 +226,17 @@ export default function DashboardPage() {
                         <span>{listsMap[campaign.target_list] || `List #${campaign.target_list}`}</span>
                       </div>
                       <div className="flex flex-col md:block md:col-span-1 text-foreground/70 text-right md:text-left">
-                        <span className="md:hidden text-[10px] uppercase font-bold text-foreground/40 mb-0.5">Sent At</span>
-                        <span>{dateStr}</span>
+                        <span className="md:hidden text-[10px] uppercase font-bold text-foreground/40 mb-0.5">
+                          {isScheduled ? 'Scheduled For' : 'Sent / Scheduled'}
+                        </span>
+                        {isScheduled && campaign.scheduled_at ? (
+                          <span className="text-indigo-400 font-medium text-xs">
+                            {new Date(campaign.scheduled_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}{' '}
+                            {new Date(campaign.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        ) : (
+                          <span>{dateStr}</span>
+                        )}
                       </div>
                     </div>
                   </div>

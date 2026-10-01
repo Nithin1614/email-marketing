@@ -257,9 +257,9 @@ export default function AdvanceCampaignDetailPage() {
         <div className="border-t border-border pt-3">
           <div className="hidden md:grid grid-cols-12 text-xs font-medium uppercase tracking-widest text-foreground/40 pb-2 border-b border-border mb-2 px-2">
             <span className="col-span-4">Name</span>
-            <span className="col-span-3">Status</span>
-            <span className="col-span-3">Sent At</span>
-            <span className="col-span-2 text-right">Actions</span>
+            <span className="col-span-2">Status</span>
+            <span className="col-span-2">Sent / Scheduled</span>
+            <span className="col-span-4 text-right">Actions</span>
           </div>
 
           {sends.length === 0 ? (
@@ -299,7 +299,7 @@ export default function AdvanceCampaignDetailPage() {
                   </div>
 
                   {/* Status Group */}
-                  <div className="flex flex-col md:col-span-3 md:block mb-2 md:mb-0">
+                  <div className="flex flex-col md:col-span-2 md:block mb-2 md:mb-0">
                     <span className="md:hidden text-[10px] uppercase font-bold text-foreground/40 mb-1">Status</span>
                     <span className="capitalize text-xs">
                       <span className={`px-2.5 py-0.5 border rounded-full inline-flex items-center space-x-1 ${
@@ -317,109 +317,120 @@ export default function AdvanceCampaignDetailPage() {
                   </div>
 
                   {/* Sent / Scheduled Date Group */}
-                  <div className="flex flex-col md:col-span-3 md:block w-full mb-4 md:mb-0">
+                  <div className="flex flex-col md:col-span-2 md:block w-full mb-3 md:mb-0">
                     <span className="md:hidden text-[10px] uppercase font-bold text-foreground/40 mb-1">
-                      {c.status === 'scheduled' ? 'Scheduled For' : 'Sent At'}
+                      {c.status === 'scheduled' ? 'Scheduled For' : 'Sent / Scheduled'}
                     </span>
-                    <span className="text-foreground/70 text-xs">
-                      {c.status === 'scheduled' && c.scheduled_at ? (
-                        <span className="text-indigo-400 font-medium">
+                    {c.status === 'scheduled' && c.scheduled_at ? (
+                      <div className="flex flex-col">
+                        <span className="text-indigo-400 font-medium text-xs inline-flex items-center gap-1">
+                          <CalendarClock size={12} className="shrink-0 text-indigo-400" />
                           {new Date(c.scheduled_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </span>
-                      ) : c.sent_at ? (
-                        new Date(c.sent_at).toLocaleDateString()
-                      ) : (
-                        '—'
-                      )}
-                    </span>
+                        <span className="text-[10px] text-foreground/40 font-medium">Scheduled</span>
+                      </div>
+                    ) : c.sent_at ? (
+                      <div className="flex flex-col">
+                        <span className="text-foreground/80 font-medium text-xs">
+                          {new Date(c.sent_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                        <span className="text-[10px] text-foreground/40 font-medium">Sent</span>
+                      </div>
+                    ) : (
+                      <span className="text-foreground/40 text-xs">—</span>
+                    )}
                   </div>
 
                   {/* Actions Group */}
-                  <div className="w-full pt-3 border-t border-border/50 md:border-0 md:pt-0 md:col-span-2 text-left md:text-right">
+                  <div className="w-full pt-3 border-t border-border/50 md:border-0 md:pt-0 md:col-span-4 text-left md:text-right">
                     {(c.status === 'draft' || c.status === 'failed') ? (
-                      <div className="flex items-center md:justify-end gap-2 flex-wrap md:flex-nowrap">
+                      <div className="flex items-center md:justify-end gap-1.5 flex-wrap">
                         <Button
                           variant="outline"
-                          className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center text-primary border-primary/30 hover:bg-primary/10"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-primary border-primary/30 hover:bg-primary/10 gap-1 font-medium"
                           onClick={() => setTestModalCampaign(c)}
-                          title="Send a preview test email"
                         >
                           <MailCheck size={12} />
                           <span>Send Test</span>
                         </Button>
                         <Button
                           variant="outline"
-                          className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10 gap-1 font-medium"
                           onClick={() => setScheduleModalCampaign(c)}
-                          title="Schedule automated send"
                         >
                           <Calendar size={12} />
                           <span>Schedule</span>
                         </Button>
-                        <Button variant="outline" className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center" onClick={() => handleSendCampaign(c.id)}>
+                        <Button
+                          variant="outline"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center gap-1 font-medium"
+                          onClick={() => handleSendCampaign(c.id)}
+                        >
                           <Send size={12} />
                           <span>Send Now</span>
                         </Button>
                         <Button
                           variant="outline"
-                          className="py-1.5 md:py-1 px-3 md:px-2 text-red-600 border-red-600/40 hover:bg-red-600 hover:text-white hover:border-red-600"
+                          className="py-1 px-2.5 md:px-2 text-red-600 border-red-600/40 hover:bg-red-600 hover:text-white hover:border-red-600 w-full md:w-auto justify-center"
                           onClick={() => handleDeleteCampaign(c)}
-                          title={`Delete ${c.name}`}
+                          aria-label={`Delete ${c.name}`}
                         >
-                          <Trash2 size={14} className="md:w-3.5 md:h-3.5" />
+                          <Trash2 size={13} className="md:w-3.5 md:h-3.5" />
                         </Button>
                       </div>
                     ) : c.status === 'scheduled' ? (
-                      <div className="flex items-center md:justify-end gap-2 flex-wrap md:flex-nowrap">
+                      <div className="flex items-center md:justify-end gap-1.5 flex-wrap">
                         <Button
                           variant="outline"
-                          className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center text-primary border-primary/30 hover:bg-primary/10"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-primary border-primary/30 hover:bg-primary/10 gap-1 font-medium"
                           onClick={() => setTestModalCampaign(c)}
-                          title="Send a preview test email"
                         >
                           <MailCheck size={12} />
                           <span>Send Test</span>
                         </Button>
                         <Button
                           variant="outline"
-                          className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10 font-medium"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10 gap-1 font-semibold"
                           onClick={() => setScheduleModalCampaign(c)}
-                          title="Edit scheduled time or cancel"
                         >
                           <CalendarClock size={12} />
                           <span>Reschedule</span>
                         </Button>
-                        <Button variant="outline" className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center" onClick={() => handleSendCampaign(c.id)} title="Send immediately now">
+                        <Button
+                          variant="outline"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center gap-1 font-medium"
+                          onClick={() => handleSendCampaign(c.id)}
+                        >
                           <Send size={12} />
                           <span>Send Now</span>
                         </Button>
                         <Button
                           variant="outline"
-                          className="py-1.5 md:py-1 px-3 md:px-2 text-red-600 border-red-600/40 hover:bg-red-600 hover:text-white hover:border-red-600"
+                          className="py-1 px-2.5 md:px-2 text-red-600 border-red-600/40 hover:bg-red-600 hover:text-white hover:border-red-600 w-full md:w-auto justify-center"
                           onClick={() => handleDeleteCampaign(c)}
-                          title={`Delete ${c.name}`}
+                          aria-label={`Delete ${c.name}`}
                         >
-                          <Trash2 size={14} className="md:w-3.5 md:h-3.5" />
+                          <Trash2 size={13} className="md:w-3.5 md:h-3.5" />
                         </Button>
                       </div>
                     ) : c.status === 'sending' ? (
                       <span className="text-xs text-foreground/40 italic">Sending...</span>
                     ) : (
-                      <div className="flex items-center md:justify-end gap-2">
+                      <div className="flex items-center md:justify-end gap-1.5">
                         <Link
                           href={`/advance-campaigns/${advCampaign.id}/sends/${c.id}`}
-                          className="inline-flex items-center justify-center gap-1 w-full md:w-auto rounded-md border border-foreground bg-background px-3 py-1.5 md:py-1 text-xs font-medium hover:bg-foreground hover:text-background transition-colors"
+                          className="inline-flex items-center justify-center gap-1 w-full md:w-auto rounded-md border border-foreground bg-background px-2.5 py-1 text-xs font-medium hover:bg-foreground hover:text-background transition-colors"
                         >
                           <ChartNoAxesCombined size={13} />
                           Analytics
                         </Link>
                         <Button
                           variant="outline"
-                          className="py-1.5 md:py-1 px-3 md:px-2 text-red-600 border-red-600/40 hover:bg-red-600 hover:text-white hover:border-red-600"
+                          className="py-1 px-2.5 md:px-2 text-red-600 border-red-600/40 hover:bg-red-600 hover:text-white hover:border-red-600 w-full md:w-auto justify-center"
                           onClick={() => handleDeleteCampaign(c)}
-                          title={`Delete ${c.name}`}
+                          aria-label={`Delete ${c.name}`}
                         >
-                          <Trash2 size={14} className="md:w-3.5 md:h-3.5" />
+                          <Trash2 size={13} className="md:w-3.5 md:h-3.5" />
                         </Button>
                       </div>
                     )}
