@@ -4,41 +4,18 @@ import React, { useState, useEffect } from 'react';
 import Card from '@/components/Card';
 import Button from '@/components/Button';
 import { 
-  ShieldCheck, 
   Users, 
   Download, 
   CheckCircle2, 
-  AlertTriangle, 
   RefreshCw, 
   Wrench, 
   Check, 
-  Info,
   FileSpreadsheet,
   FileText,
   Database,
   File
 } from 'lucide-react';
 import { apiClient } from '@/services/apiClient';
-
-interface DnsCheckItem {
-  name: string;
-  short_name: string;
-  status: 'pass' | 'missing' | 'warning';
-  record: string | null;
-  selector?: string;
-  target: string;
-  explanation: string;
-  recommendation: string;
-}
-
-interface DomainCheckResponse {
-  domain: string;
-  score: number;
-  passed_count: number;
-  total_checks: number;
-  checks: DnsCheckItem[];
-  summary: string;
-}
 
 interface ContactHygieneResponse {
   dry_run: boolean;
@@ -57,40 +34,21 @@ interface ContactHygieneResponse {
 }
 
 export default function ToolkitPage() {
-  const [activeTab, setActiveTab] = useState<'dns' | 'hygiene' | 'backup'>('dns');
+  const [activeTab, setActiveTab] = useState<'hygiene' | 'backup'>('hygiene');
 
-  // Tab 1: Domain DNS State
-  const [domainInput, setDomainInput] = useState('gmail.com');
-  const [dnsLoading, setDnsLoading] = useState(false);
-  const [dnsResult, setDnsResult] = useState<DomainCheckResponse | null>(null);
-
-  // Tab 2: Contact Hygiene State
+  // Contact Hygiene State
   const [hygieneLoading, setHygieneLoading] = useState(false);
   const [fixingHygiene, setFixingHygiene] = useState(false);
   const [hygieneResult, setHygieneResult] = useState<ContactHygieneResponse | null>(null);
   const [fixSuccessMessage, setFixSuccessMessage] = useState<string | null>(null);
 
-  // Tab 3: Backup State
+  // Backup State
   const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
 
   useEffect(() => {
-    // Initial domain lookup on load
-    runDomainCheck('gmail.com');
+    // Initial hygiene scan on page load
+    runHygieneScan(true);
   }, []);
-
-  async function runDomainCheck(domainToCheck?: string) {
-    const target = (domainToCheck || domainInput).trim();
-    if (!target) return;
-    setDnsLoading(true);
-    try {
-      const res = await apiClient.get(`/api/v1/toolkit/check-domain/?domain=${encodeURIComponent(target)}`);
-      setDnsResult(res);
-    } catch (err) {
-      console.error('DNS check failed:', err);
-    } finally {
-      setDnsLoading(false);
-    }
-  }
 
   async function runHygieneScan(dryRun: boolean = true) {
     if (dryRun) {
@@ -143,25 +101,13 @@ export default function ToolkitPage() {
             </h1>
           </div>
           <p className="text-sm text-foreground/60 mt-1">
-            Verify sender domain DNS, clean subscriber lists, and backup data.
+            Clean subscriber lists, fix domain typos, and export database backups.
           </p>
         </div>
       </div>
 
       {/* Clean Top Tabs Navigation */}
       <div className="flex items-center space-x-2 border-b border-border/40 overflow-x-auto pb-px">
-        <button
-          onClick={() => setActiveTab('dns')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
-            activeTab === 'dns'
-              ? 'border-blue-500 text-blue-400 bg-blue-500/10'
-              : 'border-transparent text-foreground/60 hover:text-foreground hover:bg-foreground/[0.03]'
-          }`}
-        >
-          <ShieldCheck size={16} />
-          Domain Health (SPF / DKIM)
-        </button>
-
         <button
           onClick={() => {
             setActiveTab('hygiene');
@@ -189,112 +135,6 @@ export default function ToolkitPage() {
           Database Backup &amp; Export
         </button>
       </div>
-
-      {/* TAB 1: DOMAIN DELIVERABILITY (SPF, DKIM, DMARC, MX) */}
-      {activeTab === 'dns' && (
-        <div className="space-y-6">
-          <Card className="p-5 border-card-border bg-surface">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Sender Domain Health &amp; DNS Verification</h3>
-                <p className="text-xs text-foreground/50 mt-0.5">
-                  Verify SPF, DKIM, DMARC, and MX records to ensure emails land in Primary inboxes rather than Spam.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={domainInput}
-                  onChange={(e) => setDomainInput(e.target.value)}
-                  placeholder="e.g. yourcompany.com"
-                  className="bg-background border border-border/60 rounded-md px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-blue-500 w-56"
-                />
-                <Button
-                  variant="custom"
-                  onClick={() => runDomainCheck()}
-                  disabled={dnsLoading}
-                  className="bg-blue-600 hover:bg-blue-500 text-white border-blue-600 text-xs py-1.5 px-3 flex items-center gap-1.5"
-                >
-                  <RefreshCw size={13} className={dnsLoading ? 'animate-spin' : ''} />
-                  {dnsLoading ? 'Checking...' : 'Check DNS'}
-                </Button>
-              </div>
-            </div>
-
-            {dnsResult && (
-              <div className="mt-4 pt-4 border-t border-border/40 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="text-foreground/60">Domain:</span>
-                  <span className="font-semibold text-foreground font-mono">{dnsResult.domain}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-foreground/60">Overall Score:</span>
-                  <span className={`px-2 py-0.5 rounded font-semibold text-[11px] ${
-                    dnsResult.score === 100 
-                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
-                      : dnsResult.score >= 50
-                      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                      : 'bg-red-500/15 text-red-400 border border-red-500/30'
-                  }`}>
-                    {dnsResult.passed_count} / {dnsResult.total_checks} Passed ({dnsResult.score}%)
-                  </span>
-                </div>
-              </div>
-            )}
-          </Card>
-
-          {/* 4 DNS Metric Cards */}
-          {dnsResult && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {dnsResult.checks.map((check, idx) => (
-                <Card key={idx} className="p-5 border-card-border bg-surface flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-foreground flex items-center gap-2">
-                        {check.status === 'pass' ? (
-                          <CheckCircle2 size={16} className="text-emerald-400" />
-                        ) : (
-                          <AlertTriangle size={16} className="text-amber-400" />
-                        )}
-                        {check.name}
-                      </span>
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded uppercase ${
-                        check.status === 'pass' 
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      }`}>
-                        {check.status === 'pass' ? 'Pass' : 'Missing'}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-foreground/70 leading-relaxed mt-1">
-                      {check.explanation}
-                    </p>
-
-                    <div className="mt-3 p-2.5 rounded bg-background/60 border border-border/30 text-[11px] space-y-1">
-                      <div className="text-foreground/50">What you need:</div>
-                      <div className="font-mono text-foreground/80 break-all">{check.target}</div>
-                    </div>
-
-                    {check.record && (
-                      <div className="mt-2 p-2.5 rounded bg-foreground/[0.02] border border-border/20 text-[11px] space-y-1">
-                        <div className="text-emerald-400/80 font-medium">What we found:</div>
-                        <div className="font-mono text-foreground/70 text-[10px] break-all">{check.record}</div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-4 pt-3 border-t border-border/40 text-[11px] text-foreground/60 flex items-center gap-1.5">
-                    <Info size={12} className="text-blue-400 shrink-0" />
-                    <span>{check.recommendation}</span>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* TAB 2: CONTACT HYGIENE & DEDUPLICATOR */}
       {activeTab === 'hygiene' && (

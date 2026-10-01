@@ -62,6 +62,14 @@ interface SystemHealthData {
     threshold: string;
     explanation: string;
   };
+  webhook_monitor?: {
+    status: 'active' | 'idle' | 'warning';
+    last_event_at: string | null;
+    seconds_ago: number | null;
+    message: string;
+    total_events: number;
+    explanation: string;
+  };
   recent_webhooks: Array<{
     id: number;
     email: string;
@@ -381,7 +389,7 @@ export default function SystemHealthPage() {
 
       {/* Recent Webhook Events Stream */}
       <Card className="p-5 border-card-border bg-surface">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <div>
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <Clock size={16} className="text-indigo-400" />
@@ -391,7 +399,24 @@ export default function SystemHealthPage() {
               Real-time events received from Brevo webhooks (Delivered, Opened, Clicked, Bounced).
             </p>
           </div>
-          <span className="text-xs text-foreground/40 font-mono">Auto-refreshed with health status</span>
+          <div className="flex items-center gap-3">
+            {data?.webhook_monitor && (
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
+                data.webhook_monitor.status === 'active'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                  : data.webhook_monitor.status === 'idle'
+                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                  : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  data.webhook_monitor.status === 'active' ? 'bg-emerald-400 animate-pulse' :
+                  data.webhook_monitor.status === 'idle' ? 'bg-blue-400' : 'bg-amber-400'
+                }`} />
+                {data.webhook_monitor.message}
+              </span>
+            )}
+            <span className="text-xs text-foreground/40 font-mono hidden sm:inline">Auto-refreshed</span>
+          </div>
         </div>
 
         {(!data?.recent_webhooks || data.recent_webhooks.length === 0) ? (
