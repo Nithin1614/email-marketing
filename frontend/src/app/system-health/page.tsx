@@ -91,9 +91,6 @@ export default function SystemHealthPage() {
   } | null>(null);
   const [showDiagnosticsModal, setShowDiagnosticsModal] = useState(false);
 
-  const [pruning, setPruning] = useState(false);
-  const [pruneResult, setPruneResult] = useState<string | null>(null);
-
   useEffect(() => {
     loadHealthData();
   }, []);
@@ -123,24 +120,6 @@ export default function SystemHealthPage() {
     }
   }
 
-  async function pruneLogs() {
-    if (!confirm('Are you sure you want to clean logs older than 90 days? Historical campaign summary stats will be preserved.')) {
-      return;
-    }
-    setPruning(true);
-    setPruneResult(null);
-    try {
-      const res = await apiClient.post('/api/v1/system/prune-logs/', {});
-      setPruneResult(res.message || 'Pruning complete');
-      loadHealthData();
-      setTimeout(() => setPruneResult(null), 5000);
-    } catch (err) {
-      setPruneResult('Failed to prune logs');
-    } finally {
-      setPruning(false);
-    }
-  }
-
   function formatTimeAgo(seconds: number | null) {
     if (seconds === null || seconds === undefined) return 'Never';
     if (seconds < 60) return `${seconds}s ago`;
@@ -158,7 +137,7 @@ export default function SystemHealthPage() {
           <div className="flex items-center space-x-3">
             <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
               <Activity className="text-emerald-500 w-8 h-8" />
-              System Health & Operations
+              System Health &amp; Operations
             </h1>
           </div>
           <p className="text-sm text-foreground/60 mt-1">
@@ -184,20 +163,10 @@ export default function SystemHealthPage() {
             className="bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600 flex items-center gap-2 text-xs py-2 px-3.5 shadow-sm"
           >
             <Play size={14} className={diagnosticsRunning ? 'animate-pulse' : ''} />
-            {diagnosticsRunning ? 'Probing Services...' : 'Run Diagnostics'}
+            {diagnosticsRunning ? 'Testing Services...' : 'Run System Test'}
           </Button>
         </div>
       </div>
-
-      {pruneResult && (
-        <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <CheckCircle2 size={16} />
-            {pruneResult}
-          </span>
-          <button onClick={() => setPruneResult(null)} className="text-foreground/50 hover:text-foreground text-xs">Dismiss</button>
-        </div>
-      )}
 
       {/* Top 4 Infrastructure Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -350,25 +319,14 @@ export default function SystemHealthPage() {
       {/* Middle Operations & Maintenance Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <Card className="p-5 border-card-border bg-surface md:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                <Server size={16} className="text-blue-400" />
-                PostgreSQL Table Record Breakdown
-              </h3>
-              <p className="text-xs text-foreground/50 mt-0.5">
-                Current row volume stored across your application entities.
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              onClick={pruneLogs}
-              disabled={pruning}
-              className="text-xs py-1.5 px-3 flex items-center gap-1.5 text-foreground/70 hover:text-foreground"
-            >
-              <Trash2 size={13} className={pruning ? 'animate-spin' : ''} />
-              {pruning ? 'Pruning...' : 'Prune 90-Day Logs'}
-            </Button>
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Server size={16} className="text-blue-400" />
+              PostgreSQL Table Record Breakdown
+            </h3>
+            <p className="text-xs text-foreground/50 mt-0.5">
+              Current row volume stored across your application entities.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4">
@@ -400,10 +358,10 @@ export default function SystemHealthPage() {
           <div>
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-1">
               <Play size={16} className="text-emerald-400" />
-              1-Click System Diagnostics
+              1-Click System Test
             </h3>
             <p className="text-xs text-foreground/60 leading-relaxed">
-              Instantly tests DB read/write latency, Brevo API authorization, and SMTP relay ports 587/2525.
+              Instantly tests DB read/write speeds, Brevo API authorization, and SMTP relay ports 587/2525.
             </p>
           </div>
 
@@ -415,7 +373,7 @@ export default function SystemHealthPage() {
               className="w-full bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600 text-xs py-2 flex items-center justify-center gap-2"
             >
               <Activity size={14} className={diagnosticsRunning ? 'animate-spin' : ''} />
-              {diagnosticsRunning ? 'Probing Cloud Services...' : 'Run Diagnostics Probes'}
+              {diagnosticsRunning ? 'Testing Cloud Services...' : 'Run System Test'}
             </Button>
           </div>
         </Card>
@@ -485,7 +443,7 @@ export default function SystemHealthPage() {
             <div className="flex items-center justify-between border-b border-border/40 pb-3">
               <div className="flex items-center space-x-2.5">
                 <Activity size={18} className="text-emerald-400" />
-                <h3 className="text-base font-semibold">Live System Diagnostics Probe</h3>
+                <h3 className="text-base font-semibold">Live System Health Test</h3>
               </div>
               <button 
                 onClick={() => setShowDiagnosticsModal(false)}
@@ -499,18 +457,18 @@ export default function SystemHealthPage() {
               <div className="py-10 text-center space-y-3">
                 <RefreshCw size={28} className="animate-spin text-emerald-400 mx-auto" />
                 <p className="text-sm font-medium">Testing database, API credentials, and SMTP ports...</p>
-                <p className="text-xs text-foreground/50">Measuring roundtrip network latency</p>
+                <p className="text-xs text-foreground/50">Checking connection speeds</p>
               </div>
             ) : diagnostics ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-3 rounded-lg bg-foreground/[0.03] border border-border/40 text-xs">
-                  <span className="text-foreground/70">Overall Infrastructure Status:</span>
-                  <span className={`px-2 py-0.5 rounded font-semibold uppercase text-[11px] ${
+                  <span className="text-foreground/70">Overall System Status:</span>
+                  <span className={`px-2.5 py-1 rounded font-semibold text-[11px] ${
                     diagnostics.overall_status === 'healthy' 
                       ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
                       : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
                   }`}>
-                    {diagnostics.overall_status}
+                    {diagnostics.overall_status === 'healthy' ? 'Healthy' : 'Needs Attention'}
                   </span>
                 </div>
 

@@ -60,13 +60,15 @@ class CheckDomainDnsView(APIView):
                 spf_found = r
                 break
 
+        is_consumer_mail = domain in ["gmail.com", "googlemail.com", "yahoo.com", "hotmail.com", "outlook.com", "icloud.com"]
+
         spf_result = {
-            "name": "SPF (Sender Policy Framework)",
+            "name": "SPF (Sender Policy)",
             "short_name": "SPF",
             "status": "pass" if spf_found else "missing",
             "record": spf_found,
-            "target": "v=spf1 include:spf.brevo.com ~all (or authorized sender IP)",
-            "explanation": "Verifies which mail servers are permitted to send emails on behalf of your domain.",
+            "target": "A valid 'v=spf1' record authorizing your mail server",
+            "explanation": "Checks if your domain allows our servers to send emails for you.",
             "recommendation": "Add a TXT record with 'v=spf1 include:spf.brevo.com ~all' in your domain's DNS manager." if not spf_found else "SPF is properly configured."
         }
 
@@ -83,15 +85,21 @@ class CheckDomainDnsView(APIView):
             if dkim_found:
                 break
 
+        dkim_rec = (
+            "For personal @gmail.com or @yahoo.com addresses, Brevo handles this automatically in the background. For custom business domains, add the DKIM TXT record from Brevo."
+            if is_consumer_mail and not dkim_found
+            else ("Add the DKIM TXT record provided in your Brevo Senders & Domains dashboard." if not dkim_found else f"DKIM verified (Selector: {dkim_selector}).")
+        )
+
         dkim_result = {
-            "name": "DKIM (DomainKeys Identified Mail)",
+            "name": "DKIM (Security Seal)",
             "short_name": "DKIM",
-            "status": "pass" if dkim_found else "missing",
-            "record": dkim_found,
+            "status": "pass" if dkim_found else ("pass" if is_consumer_mail else "missing"),
+            "record": dkim_found if dkim_found else ("Handled automatically by Brevo for @gmail.com" if is_consumer_mail else None),
             "selector": dkim_selector,
-            "target": "Valid public key cryptographic TXT record matching your sending provider",
-            "explanation": "Cryptographically signs outgoing emails to guarantee they aren't forged or tampered with in transit.",
-            "recommendation": "Add the DKIM TXT record provided in your Brevo Senders & Domains dashboard." if not dkim_found else f"DKIM verified (Selector: {dkim_selector})."
+            "target": "A valid cryptographic TXT record matching your email provider",
+            "explanation": "A digital security seal proving emails genuinely came from you.",
+            "recommendation": dkim_rec
         }
 
         # 3. DMARC Check
@@ -103,26 +111,26 @@ class CheckDomainDnsView(APIView):
                 break
 
         dmarc_result = {
-            "name": "DMARC (Domain-based Message Authentication)",
+            "name": "DMARC (Spoofing Shield)",
             "short_name": "DMARC",
             "status": "pass" if dmarc_found else "missing",
             "record": dmarc_found,
-            "target": "v=DMARC1; p=none (or p=quarantine / p=reject)",
-            "explanation": "Protects your domain from spoofing and instructs inboxes how to handle unauthorized senders.",
-            "recommendation": "Add a TXT record for '_dmarc' with value 'v=DMARC1; p=none; sp=none;'." if not dmarc_found else "DMARC policy is active."
+            "target": "A valid 'v=DMARC1' record protecting your domain",
+            "explanation": "Protects your name so scammers cannot fake sending emails from your domain.",
+            "recommendation": "Add a TXT record for '_dmarc' with value 'v=DMARC1; p=none;'." if not dmarc_found else "DMARC policy is active."
         }
 
         # 4. MX Records Check
         mx_records = query_dns_json(domain, "MX")
         mx_result = {
-            "name": "MX (Mail Exchange)",
+            "name": "MX (Receiving Mailbox)",
             "short_name": "MX",
             "status": "pass" if mx_records else "missing",
             "record": mx_records[0] if mx_records else None,
             "records_count": len(mx_records),
-            "target": "At least 1 active receiving mail exchanger configured",
-            "explanation": "Confirms your domain has active mail servers configured to receive emails.",
-            "recommendation": "Configure MX records pointing to your email hosting provider." if not mx_records else f"Found {len(mx_records)} active MX record(s)."
+            "target": "At least 1 working mail server to receive incoming replies",
+            "explanation": "Checks if your domain has a working inbox to receive email replies.",
+            "recommendation": "Configure MX records pointing to your email provider." if not mx_records else f"Found {len(mx_records)} active mail server(s)."
         }
 
         # Health score calculation

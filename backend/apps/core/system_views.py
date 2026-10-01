@@ -284,7 +284,7 @@ class RunDiagnosticsView(APIView):
 
         overall_ok = db_ok and api_ok and (port_2525_ok or port_587_ok)
         return Response({
-            "overall_status": "healthy" if overall_ok else "degraded",
+            "overall_status": "healthy" if overall_ok else "needs attention",
             "timestamp": timezone.now().isoformat(),
             "results": results
         })

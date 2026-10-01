@@ -5,18 +5,13 @@ import Card from '@/components/Card';
 import Button from '@/components/Button';
 import { 
   ShieldCheck, 
-  Sparkles, 
   Users, 
   Download, 
-  Search, 
   CheckCircle2, 
-  XCircle, 
   AlertTriangle, 
   RefreshCw, 
   Wrench, 
   Check, 
-  FileText, 
-  ExternalLink,
   Info
 } from 'lucide-react';
 import { apiClient } from '@/services/apiClient';
@@ -41,22 +36,6 @@ interface DomainCheckResponse {
   summary: string;
 }
 
-interface SpamScanResponse {
-  score: number;
-  rating: string;
-  rating_desc: string;
-  status_color: 'green' | 'amber' | 'red';
-  flags: Array<{
-    type: string;
-    severity: string;
-    title: string;
-    items?: string[];
-    penalty: number;
-    tip: string;
-  }>;
-  explanation: string;
-}
-
 interface ContactHygieneResponse {
   dry_run: boolean;
   total_scanned: number;
@@ -74,26 +53,20 @@ interface ContactHygieneResponse {
 }
 
 export default function ToolkitPage() {
-  const [activeTab, setActiveTab] = useState<'dns' | 'spam' | 'hygiene' | 'backup'>('dns');
+  const [activeTab, setActiveTab] = useState<'dns' | 'hygiene' | 'backup'>('dns');
 
   // Tab 1: Domain DNS State
   const [domainInput, setDomainInput] = useState('gmail.com');
   const [dnsLoading, setDnsLoading] = useState(false);
   const [dnsResult, setDnsResult] = useState<DomainCheckResponse | null>(null);
 
-  // Tab 2: Spam Scanner State
-  const [spamSubject, setSpamSubject] = useState('');
-  const [spamBody, setSpamBody] = useState('');
-  const [spamLoading, setSpamLoading] = useState(false);
-  const [spamResult, setSpamResult] = useState<SpamScanResponse | null>(null);
-
-  // Tab 3: Contact Hygiene State
+  // Tab 2: Contact Hygiene State
   const [hygieneLoading, setHygieneLoading] = useState(false);
   const [fixingHygiene, setFixingHygiene] = useState(false);
   const [hygieneResult, setHygieneResult] = useState<ContactHygieneResponse | null>(null);
   const [fixSuccessMessage, setFixSuccessMessage] = useState<string | null>(null);
 
-  // Tab 4: Backup State
+  // Tab 3: Backup State
   const [backupDownloading, setBackupDownloading] = useState(false);
 
   useEffect(() => {
@@ -112,22 +85,6 @@ export default function ToolkitPage() {
       console.error('DNS check failed:', err);
     } finally {
       setDnsLoading(false);
-    }
-  }
-
-  async function runSpamScan() {
-    if (!spamSubject && !spamBody) return;
-    setSpamLoading(true);
-    try {
-      const res = await apiClient.post('/api/v1/toolkit/scan-spam/', {
-        subject: spamSubject,
-        body: spamBody
-      });
-      setSpamResult(res);
-    } catch (err) {
-      console.error('Spam scan failed:', err);
-    } finally {
-      setSpamLoading(false);
     }
   }
 
@@ -177,12 +134,12 @@ export default function ToolkitPage() {
             </h1>
           </div>
           <p className="text-sm text-foreground/60 mt-1">
-            Verify sender domain DNS, analyze email spam risk, clean subscriber lists, and backup data.
+            Verify sender domain DNS, clean subscriber lists, and backup data.
           </p>
         </div>
       </div>
 
-      {/* Option A: Clean Top Tabs Navigation */}
+      {/* Clean Top Tabs Navigation */}
       <div className="flex items-center space-x-2 border-b border-border/40 overflow-x-auto pb-px">
         <button
           onClick={() => setActiveTab('dns')}
@@ -193,19 +150,7 @@ export default function ToolkitPage() {
           }`}
         >
           <ShieldCheck size={16} />
-          Domain Deliverability (SPF/DKIM)
-        </button>
-
-        <button
-          onClick={() => setActiveTab('spam')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
-            activeTab === 'spam'
-              ? 'border-blue-500 text-blue-400 bg-blue-500/10'
-              : 'border-transparent text-foreground/60 hover:text-foreground hover:bg-foreground/[0.03]'
-          }`}
-        >
-          <Sparkles size={16} />
-          Spam Word &amp; Content Scanner
+          Domain Health (SPF / DKIM)
         </button>
 
         <button
@@ -220,7 +165,7 @@ export default function ToolkitPage() {
           }`}
         >
           <Users size={16} />
-          Contact Hygiene &amp; Deduplicator
+          Contact Cleaner &amp; Deduplicator
         </button>
 
         <button
@@ -319,13 +264,13 @@ export default function ToolkitPage() {
                     </p>
 
                     <div className="mt-3 p-2.5 rounded bg-background/60 border border-border/30 text-[11px] space-y-1">
-                      <div className="text-foreground/50">Expected target:</div>
+                      <div className="text-foreground/50">What you need:</div>
                       <div className="font-mono text-foreground/80 break-all">{check.target}</div>
                     </div>
 
                     {check.record && (
                       <div className="mt-2 p-2.5 rounded bg-foreground/[0.02] border border-border/20 text-[11px] space-y-1">
-                        <div className="text-emerald-400/80 font-medium">Record detected:</div>
+                        <div className="text-emerald-400/80 font-medium">What we found:</div>
                         <div className="font-mono text-foreground/70 text-[10px] break-all">{check.record}</div>
                       </div>
                     )}
@@ -342,135 +287,15 @@ export default function ToolkitPage() {
         </div>
       )}
 
-      {/* TAB 2: SPAM WORD & CONTENT SCANNER */}
-      {activeTab === 'spam' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            <Card className="p-5 border-card-border bg-surface space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Pre-Send Email Spam Scanner</h3>
-                <p className="text-xs text-foreground/50 mt-0.5">
-                  Paste your campaign subject line and body to test for spam trigger words, formatting penalties, and deliverability red flags.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-medium text-foreground/70 block mb-1">Subject Line</label>
-                  <input
-                    type="text"
-                    value={spamSubject}
-                    onChange={(e) => setSpamSubject(e.target.value)}
-                    placeholder="e.g. Exclusive invitation: Boost your team productivity"
-                    className="w-full bg-background border border-border/60 rounded-md px-3 py-2 text-xs text-foreground focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-foreground/70 block mb-1">Email Body (HTML or Plain Text)</label>
-                  <textarea
-                    rows={8}
-                    value={spamBody}
-                    onChange={(e) => setSpamBody(e.target.value)}
-                    placeholder="Paste your email draft content here..."
-                    className="w-full bg-background border border-border/60 rounded-md p-3 text-xs text-foreground focus:outline-none focus:border-blue-500 font-mono"
-                  />
-                </div>
-
-                <div className="flex justify-end">
-                  <Button
-                    variant="custom"
-                    onClick={runSpamScan}
-                    disabled={spamLoading || (!spamSubject && !spamBody)}
-                    className="bg-blue-600 hover:bg-blue-500 text-white border-blue-600 text-xs py-2 px-4 flex items-center gap-2"
-                  >
-                    <Sparkles size={14} className={spamLoading ? 'animate-spin' : ''} />
-                    {spamLoading ? 'Analyzing Content...' : 'Scan Content for Spam Risk'}
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Results Sidebar */}
-          <div>
-            <Card className="p-5 border-card-border bg-surface space-y-5 sticky top-6">
-              <div>
-                <span className="text-xs font-semibold tracking-wider text-foreground/50 uppercase">Deliverability Score</span>
-                <div className="flex items-baseline space-x-2 mt-1">
-                  <span className="text-3xl font-bold text-foreground">
-                    {spamResult ? `${spamResult.score}/100` : '—'}
-                  </span>
-                  {spamResult && (
-                    <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
-                      spamResult.status_color === 'green' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                      spamResult.status_color === 'amber' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
-                      'bg-red-500/10 text-red-400 border border-red-500/20'
-                    }`}>
-                      {spamResult.rating}
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-xs text-foreground/60 mt-2">
-                  {spamResult ? spamResult.rating_desc : 'Target: 85–100. Lower scores indicate high risk of landing in Spam.'}
-                </p>
-              </div>
-
-              {spamResult && (
-                <div className="space-y-3 pt-3 border-t border-border/40">
-                  <span className="text-xs font-semibold text-foreground block">
-                    Diagnostic Flags ({spamResult.flags.length})
-                  </span>
-
-                  {spamResult.flags.length === 0 ? (
-                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded text-emerald-400 text-xs flex items-center gap-2">
-                      <CheckCircle2 size={16} />
-                      Zero spam trigger flags detected!
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
-                      {spamResult.flags.map((flag, i) => (
-                        <div key={i} className="p-3 rounded bg-background/60 border border-border/30 text-xs space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-foreground flex items-center gap-1.5">
-                              <AlertTriangle size={13} className="text-amber-400" />
-                              {flag.title}
-                            </span>
-                            <span className="text-[10px] text-red-400 font-mono">-{flag.penalty} pts</span>
-                          </div>
-
-                          {flag.items && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {flag.items.map((item, idx) => (
-                                <span key={idx} className="bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono">
-                                  {item}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          <p className="text-[11px] text-foreground/60">{flag.tip}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: CONTACT HYGIENE & DEDUPLICATOR */}
+      {/* TAB 2: CONTACT HYGIENE & DEDUPLICATOR */}
       {activeTab === 'hygiene' && (
         <div className="space-y-6">
           <Card className="p-5 border-card-border bg-surface">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Contact List Hygiene &amp; Auto-Deduplicator</h3>
+                <h3 className="text-sm font-semibold text-foreground">Contact List Cleaner &amp; Deduplicator</h3>
                 <p className="text-xs text-foreground/50 mt-0.5">
-                  Scans your database for popular domain typos (e.g. @gamil.com), invalid syntaxes, and duplicate emails across lists.
+                  Scans your database for popular domain typos (e.g. @gamil.com), invalid email syntaxes, and duplicate contacts across lists.
                 </p>
               </div>
 
@@ -608,7 +433,7 @@ export default function ToolkitPage() {
         </div>
       )}
 
-      {/* TAB 4: DATABASE BACKUP & EXPORT */}
+      {/* TAB 3: DATABASE BACKUP & EXPORT */}
       {activeTab === 'backup' && (
         <div className="space-y-6">
           <Card className="p-6 border-card-border bg-surface space-y-4">
