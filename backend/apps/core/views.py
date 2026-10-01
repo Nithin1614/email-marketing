@@ -39,7 +39,11 @@ class DashboardSummaryView(APIView):
             campaign__in=campaigns_sent_today
         ).aggregate(Sum('total_sent'))['total_sent__sum'] or 0
 
-        today_sent_count = max(recipient_sent_today, perf_sent_today)
+        # Safe sandbox test emails sent today (count towards Brevo daily quota, but NOT campaign analytics)
+        from apps.tracking.models import TestEmailLog
+        test_sent_today = TestEmailLog.objects.filter(sent_at__gte=today_start_utc).count()
+
+        today_sent_count = max(recipient_sent_today, perf_sent_today) + test_sent_today
         daily_limit = 300
         remaining_today = max(0, daily_limit - today_sent_count)
         percentage_used = min(100, round((today_sent_count / daily_limit) * 100))
@@ -49,6 +53,8 @@ class DashboardSummaryView(APIView):
             'limit': daily_limit,
             'remaining': remaining_today,
             'percentage': percentage_used,
+            'test_sent': test_sent_today,
+            'campaign_sent': max(recipient_sent_today, perf_sent_today),
             'resets_at': '00:00 UTC',
         }
 

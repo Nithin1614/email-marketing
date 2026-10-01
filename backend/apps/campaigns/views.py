@@ -183,6 +183,13 @@ class CampaignViewSet(viewsets.ModelViewSet):
                     connection = get_connection()
                     connection.send_messages(messages)
                     logger.info("Successfully sent %d test email(s) for campaign %s", len(messages), camp.id)
+
+                    try:
+                        from apps.tracking.models import TestEmailLog
+                        for email_addr in email_list:
+                            TestEmailLog.objects.create(recipient_email=email_addr, campaign=camp)
+                    except Exception as log_err:
+                        logger.error("Failed to log test email in TestEmailLog: %s", log_err)
             except Exception as exc:
                 logger.error("Error in test email worker for campaign %s: %s", campaign_id, exc)
             finally:

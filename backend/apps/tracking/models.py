@@ -93,3 +93,15 @@ class MasterLinkSettings(models.Model):
 
     def __str__(self):
         return f"Master Link {'Active' if self.is_active else 'Inactive'}"
+
+
+class TestEmailLog(models.Model):
+    recipient_email = models.CharField(max_length=255)
+    campaign = models.ForeignKey(Campaign, on_delete=models.SET_NULL, null=True, blank=True, related_name='test_logs')
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        return f"Test to {self.recipient_email} at {self.sent_at}"

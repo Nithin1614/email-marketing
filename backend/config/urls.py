@@ -73,10 +73,23 @@ def ensure_db_schema():
                 );
             """)
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS tracking_testemaillog (
+                    id BIGSERIAL PRIMARY KEY,
+                    recipient_email VARCHAR(255) NOT NULL,
+                    campaign_id BIGINT NULL,
+                    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+            """)
+            cursor.execute("""
                 INSERT INTO django_migrations (app, name, applied)
                 SELECT 'campaigns', '0011_advancecampaign_share_token', NOW()
                 WHERE NOT EXISTS (
                     SELECT 1 FROM django_migrations WHERE app='campaigns' AND name='0011_advancecampaign_share_token'
+                );
+                INSERT INTO django_migrations (app, name, applied)
+                SELECT 'tracking', '0008_testemaillog', NOW()
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM django_migrations WHERE app='tracking' AND name='0008_testemaillog'
                 );
             """)
     except Exception:

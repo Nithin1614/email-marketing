@@ -152,7 +152,10 @@ export default function DashboardPage() {
             />
           </div>
           <div className="flex justify-between items-center text-[11px] text-foreground/40 font-medium">
-            <span>{loading ? '...' : `${dailyQuota.percentage}% used today`}</span>
+            <span>
+              {loading ? '...' : `${dailyQuota.percentage}% used today`}
+              {!loading && (dailyQuota as any).test_sent ? ` • ${(dailyQuota as any).campaign_sent || 0} blasts, ${(dailyQuota as any).test_sent} test sends` : ''}
+            </span>
             <span>{loading ? '...' : `${dailyQuota.remaining} available`}</span>
           </div>
         </div>
