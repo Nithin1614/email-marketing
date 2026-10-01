@@ -19,54 +19,46 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 1. Instant Cache: Load cached data immediately from sessionStorage (0ms render)
+    try {
+      const cached = sessionStorage.getItem('dashboard_summary');
+      if (cached) {
+        const data = JSON.parse(cached);
+        if (data && data.stats) {
+          setStats(data.stats);
+          setRecentCampaigns(data.recentCampaigns || []);
+          setListsMap(data.listsMap || {});
+          setLoading(false);
+        }
+      }
+    } catch (e) {}
+
+    // 2. Fetch fresh data via single consolidated endpoint in <100ms
     async function loadDashboardData() {
       try {
-        const [contactsRes, campaignsRes, templatesRes, listsRes] = await Promise.all([
-          apiClient.get('/api/v1/contacts/?limit=10'), // The dashboard only uses .count for contacts
-          apiClient.get('/api/v1/campaigns/?limit=10'), // The dashboard only shows recent 5 campaigns
-          apiClient.get('/api/v1/templates/?limit=100'),
-          apiClient.get('/api/v1/contact-lists/?limit=10000'),
-        ]);
+        const res = await apiClient.get('/api/v1/dashboard/summary/');
+        const newStats = {
+          contacts: (res.total_contacts ?? 0).toLocaleString(),
+          campaigns: (res.total_campaigns ?? 0).toLocaleString(),
+          templates: (res.total_templates ?? 0).toLocaleString(),
+          openRate: res.avg_open_rate || '0%',
+        };
+        const campaigns = res.recent_campaigns || [];
+        const lists = res.lists_map || {};
 
-        const listsData: ContactList[] = listsRes.results || [];
-        const mapping: Record<number, string> = {};
-        listsData.forEach(list => {
-          mapping[list.id] = list.name;
-        });
-        setListsMap(mapping);
+        setStats(newStats);
+        setRecentCampaigns(campaigns);
+        setListsMap(lists);
 
-        const campaigns: Campaign[] = campaignsRes.results || [];
-        setRecentCampaigns(campaigns.slice(0, 5));
-
-        const totalContacts = contactsRes.count ?? 0;
-        const totalCampaigns = campaignsRes.count ?? 0;
-        const totalTemplates = templatesRes.count ?? 0;
-
-        let avgOpenRate = '0%';
         try {
-          const perfRes = await apiClient.get('/api/v1/tracking/');
-          const perfs = perfRes.results || [];
-          let totalSent = 0;
-          let totalOpens = 0;
-          perfs.forEach((p: any) => {
-            totalSent += p.total_sent || 0;
-            totalOpens += p.total_opens || 0;
-          });
-          if (totalSent > 0) {
-            avgOpenRate = `${Math.round((totalOpens / totalSent) * 100)}%`;
-          }
-        } catch (e) {
-          console.error("Failed to load tracking performance", e);
-        }
-
-        setStats({
-          contacts: totalContacts.toLocaleString(),
-          campaigns: totalCampaigns.toLocaleString(),
-          templates: totalTemplates.toLocaleString(),
-          openRate: avgOpenRate,
-        });
+          sessionStorage.setItem('dashboard_summary', JSON.stringify({
+            stats: newStats,
+            recentCampaigns: campaigns,
+            listsMap: lists,
+          }));
+        } catch (e) {}
       } catch (err) {
-        console.error('Failed to load dashboard statistics:', err);
+        console.error('Failed to load dashboard summary:', err);
       } finally {
         setLoading(false);
       }

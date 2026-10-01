@@ -27,6 +27,8 @@ from apps.contacts.views import ContactViewSet, ContactListViewSet, IgnoredConta
 from apps.templates.views import EmailTemplateViewSet
 from apps.campaigns.views import CampaignViewSet, SenderListView, AdvanceCampaignViewSet, PodcastSenderViewSet
 from apps.tracking.views import CampaignPerformanceViewSet, CampaignAnalyticsViewSet, BrevoWebhookView, BouncedEmailViewSet, PublicCampaignAnalyticsView, MasterLinkSettingsView, PublicMasterLinkCampaignsView, PublicAdvanceCampaignView, PublicMasterLinkRecentsView, PublicMasterLinkContactsView
+from apps.core.views import DashboardSummaryView
+
 
 def ensure_db_schema():
     from django.db import connection
@@ -106,6 +108,8 @@ urlpatterns = [
     path('api/v1/', include(router.urls)),
     path('api/v1/auth/token/', obtain_auth_token, name='api_token_auth'),
     path('api/v1/auth/token', obtain_auth_token, name='api_token_auth_no_slash'),
+    path('api/v1/dashboard/summary/', DashboardSummaryView.as_view(), name='dashboard-summary'),
+    path('api/v1/dashboard/summary', DashboardSummaryView.as_view(), name='dashboard-summary-no-slash'),
     path('api/v1/senders/', SenderListView.as_view(), name='sender-list'),
     path('api/v1/webhooks/brevo/', BrevoWebhookView.as_view(), name='brevo-webhook'),
     path('api/v1/webhooks/brevo', BrevoWebhookView.as_view(), name='brevo-webhook-no-slash'),
