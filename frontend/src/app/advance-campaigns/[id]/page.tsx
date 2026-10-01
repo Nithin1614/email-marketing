@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import Card from '../../../components/Card';
 import Button from '../../../components/Button';
-import { ArrowLeft, Plus, Send, AlertCircle, RefreshCw, ChartNoAxesCombined, Trash2, Edit2, Check, X as XIcon, Share2 } from 'lucide-react';
+import { ArrowLeft, Plus, Send, AlertCircle, RefreshCw, ChartNoAxesCombined, Trash2, Edit2, Check, X as XIcon, Share2, MailCheck } from 'lucide-react';
 import { apiClient } from '../../../services/apiClient';
 import { AdvanceCampaign, Campaign, ContactList, EmailTemplate, ContactBatch } from '../../../types';
 import { slugify } from '../../../utils/slug';
+import SendTestModal from '../../../components/SendTestModal';
 
 export default function AdvanceCampaignDetailPage() {
   const params = useParams();
@@ -23,6 +24,7 @@ export default function AdvanceCampaignDetailPage() {
   const [polling, setPolling] = useState(false);
   const [actionError, setActionError] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [testModalCampaign, setTestModalCampaign] = useState<Campaign | null>(null);
 
   const [editingAdvName, setEditingAdvName] = useState(false);
   const [newAdvName, setNewAdvName] = useState('');
@@ -319,7 +321,16 @@ export default function AdvanceCampaignDetailPage() {
                   {/* Actions Group */}
                   <div className="w-full pt-3 border-t border-border/50 md:border-0 md:pt-0 md:col-span-2 text-left md:text-right">
                     {(c.status === 'draft' || c.status === 'failed') ? (
-                      <div className="flex items-center md:justify-end gap-2">
+                      <div className="flex items-center md:justify-end gap-2 flex-wrap md:flex-nowrap">
+                        <Button
+                          variant="outline"
+                          className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center text-primary border-primary/30 hover:bg-primary/10"
+                          onClick={() => setTestModalCampaign(c)}
+                          title="Send a preview test email"
+                        >
+                          <MailCheck size={12} />
+                          <span>Send Test</span>
+                        </Button>
                         <Button variant="outline" className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center" onClick={() => handleSendCampaign(c.id)}>
                           <Send size={12} />
                           <span>Send Now</span>
@@ -361,6 +372,13 @@ export default function AdvanceCampaignDetailPage() {
           )}
         </div>
       </Card>
+
+      <SendTestModal
+        isOpen={Boolean(testModalCampaign)}
+        onClose={() => setTestModalCampaign(null)}
+        campaignId={testModalCampaign?.id ?? null}
+        campaignName={testModalCampaign?.name ?? ''}
+      />
     </div>
   );
 }

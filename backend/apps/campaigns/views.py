@@ -95,6 +95,93 @@ class CampaignViewSet(viewsets.ModelViewSet):
 
         return Response({'status': 'Campaign queued for sending.'})
 
+    @action(detail=True, methods=['post'], url_path='send-test')
+    def send_test(self, request, pk=None):
+        campaign = self.get_object()
+        raw_emails = request.data.get('emails', [])
+        if isinstance(raw_emails, str):
+            raw_emails = [e.strip() for e in raw_emails.replace(',', ' ').split() if e.strip()]
+
+        default_email = getattr(settings, 'EMAIL_HOST_USER', 'webdesign.team24@gmail.com')
+        if '@smtp-brevo.com' in default_email:
+            default_email = 'webdesign.team24@gmail.com'
+
+        if not raw_emails:
+            raw_emails = [default_email]
+
+        emails = [e for e in raw_emails if '@' in e][:5]
+        if not emails:
+            return Response({'error': 'No valid recipient email address provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .tasks import render_template
+        from django.core.mail import EmailMultiAlternatives
+        from django.utils.html import strip_tags
+        from django.utils import timezone
+
+        subject_template = campaign.subject or campaign.template.subject
+        layout_template = campaign.template.html_content
+        if '{{ body }}' in layout_template:
+            layout_template = layout_template.replace('{{ body }}', campaign.template.body)
+        else:
+            layout_template += campaign.template.body
+
+        sender = campaign.podcast_sender or PodcastSender.objects.first()
+        brand_name = sender.name if sender else 'Web Design Team'
+        website_url = sender.website_url if sender else 'https://webdesign.com'
+        scheduling_link = getattr(sender, 'scheduling_link', 'https://calendly.com')
+        physical_address = sender.physical_address if sender else ''
+
+        sent_to = []
+        errors = []
+
+        for email_addr in emails:
+            try:
+                context = {}
+                if isinstance(campaign.template.variables, dict):
+                    context.update(campaign.template.variables)
+
+                context.update({
+                    'first_name': 'Test User',
+                    'last_name': '',
+                    'email': email_addr,
+                    'subject': subject_template,
+                    'brand_name': brand_name,
+                    'website_url': website_url,
+                    'linkedin_url': getattr(sender, 'linkedin_url', ''),
+                    'scheduling_link': scheduling_link,
+                    'physical_address': physical_address,
+                    'current_year': str(timezone.now().year),
+                })
+
+                html_content = render_template(layout_template, context)
+                text_content = strip_tags(html_content)
+                rendered_subject = "[TEST] " + "".join(render_template(subject_template, context).splitlines())
+
+                from_addr = campaign.from_email or getattr(settings, 'DEFAULT_FROM_EMAIL', 'Web Design Team <webdesign.team24@gmail.com>')
+
+                email = EmailMultiAlternatives(
+                    subject=rendered_subject,
+                    body=text_content,
+                    from_email=from_addr,
+                    to=[email_addr],
+                    headers={'X-Mailin-Tag': f'test-campaign-{campaign.id}'},
+                )
+                email.attach_alternative(html_content, 'text/html')
+                email.send(fail_silently=False)
+                sent_to.append(email_addr)
+            except Exception as e:
+                errors.append(f"{email_addr}: {str(e)}")
+
+        if not sent_to:
+            return Response({'error': f"Failed to send test emails: {'; '.join(errors)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            'status': 'success',
+            'sent_to': sent_to,
+            'errors': errors,
+            'message': f"Test email sent to {len(sent_to)} recipient(s)!"
+        })
+
     @action(detail=True, methods=['post'], url_path='convert-to-advanced')
     def convert_to_advanced(self, request, pk=None):
         campaign = self.get_object()

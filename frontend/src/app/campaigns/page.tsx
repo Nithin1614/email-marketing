@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
-import { Plus, X, Send, AlertCircle, RefreshCw, ChartNoAxesCombined, Trash2, Zap } from 'lucide-react';
+import { Plus, X, Send, AlertCircle, RefreshCw, ChartNoAxesCombined, Trash2, Zap, MailCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '../../services/apiClient';
 import { Campaign, ContactList, EmailTemplate } from '../../types';
+import SendTestModal from '../../components/SendTestModal';
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -16,6 +17,7 @@ export default function CampaignsPage() {
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
   const [showMasterLinkModal, setShowMasterLinkModal] = useState(false);
+  const [testModalCampaign, setTestModalCampaign] = useState<Campaign | null>(null);
   const router = useRouter();
 
   const [actionError, setActionError] = useState('');
@@ -208,6 +210,15 @@ export default function CampaignsPage() {
                   <div className="w-full pt-3 border-t border-border/50 md:border-0 md:pt-0 md:col-span-2 text-left md:text-right">
                     {(c.status === 'draft' || c.status === 'failed') ? (
                       <div className="flex items-center md:justify-end gap-2 flex-wrap md:flex-nowrap">
+                        <Button
+                          variant="outline"
+                          className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center text-primary border-primary/30 hover:bg-primary/10"
+                          onClick={() => setTestModalCampaign(c)}
+                          title="Send a preview test email"
+                        >
+                          <MailCheck size={12} />
+                          <span>Send Test</span>
+                        </Button>
                         <Button variant="outline" className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center" onClick={() => handleConvertToAdvanced(c.id, c.name)}>
                           <Zap size={12} className="text-yellow-500" />
                           <span>To Advance</span>
@@ -262,6 +273,13 @@ export default function CampaignsPage() {
       {showMasterLinkModal && (
         <MasterLinkModal onClose={() => setShowMasterLinkModal(false)} />
       )}
+
+      <SendTestModal
+        isOpen={Boolean(testModalCampaign)}
+        onClose={() => setTestModalCampaign(null)}
+        campaignId={testModalCampaign?.id ?? null}
+        campaignName={testModalCampaign?.name ?? ''}
+      />
     </div>
   );
 }
