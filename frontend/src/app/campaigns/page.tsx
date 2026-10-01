@@ -153,14 +153,14 @@ export default function CampaignsPage() {
         </div>
       )}
 
-      <Card className="p-4">
-        <div className="border-t border-border pt-3">
-          <div className="hidden md:grid grid-cols-12 text-xs font-medium uppercase tracking-widest text-foreground/40 pb-2 border-b border-border mb-2 px-2">
-            <span className="col-span-3">Name</span>
-            <span className="col-span-2">Status</span>
-            <span className="col-span-2">Target List</span>
-            <span className="col-span-2">Sent / Scheduled</span>
-            <span className="col-span-3 text-right">Actions</span>
+      <Card className="p-4 overflow-x-auto">
+        <div className="border-t border-border pt-3 min-w-full">
+          <div className="hidden md:grid md:grid-cols-[minmax(160px,1.8fr)_95px_minmax(95px,1.1fr)_minmax(120px,1.3fr)_auto] text-xs font-medium uppercase tracking-widest text-foreground/40 pb-2 border-b border-border mb-2 px-2 items-center">
+            <span>Name</span>
+            <span>Status</span>
+            <span>Target List</span>
+            <span>Sent / Scheduled</span>
+            <span className="text-right">Actions</span>
           </div>
 
           {loading ? (
@@ -172,9 +172,9 @@ export default function CampaignsPage() {
           ) : (
             <div className="divide-y divide-border">
               {campaigns.map((c) => (
-                <div key={c.id} className="flex flex-col md:grid md:grid-cols-12 gap-1 md:gap-0 py-4 md:py-3 text-sm items-start md:items-center hover:bg-foreground/5 rounded-lg md:rounded-md border border-border md:border-transparent bg-foreground/[0.02] md:bg-transparent px-3 md:px-2 mb-4 md:mb-0 transition-colors shadow-sm md:shadow-none">
+                <div key={c.id} className="flex flex-col md:grid md:grid-cols-[minmax(160px,1.8fr)_95px_minmax(95px,1.1fr)_minmax(120px,1.3fr)_auto] gap-1 md:gap-2 py-4 md:py-3 text-sm items-start md:items-center hover:bg-foreground/5 rounded-lg md:rounded-md border border-border md:border-transparent bg-foreground/[0.02] md:bg-transparent px-3 md:px-2 mb-4 md:mb-0 transition-colors shadow-sm md:shadow-none">
                   {/* Name and Basic Info */}
-                  <div className="flex flex-col md:col-span-3 pr-2 min-w-0 w-full mb-3 md:mb-0">
+                  <div className="flex flex-col pr-2 min-w-0 w-full mb-3 md:mb-0">
                     <span className="font-bold md:font-medium text-base md:text-sm truncate text-foreground">{c.name}</span>
                     <span className="text-xs text-foreground/50 mt-1 truncate font-medium">Template: {getTemplateName(c.template)}</span>
                     <span className="text-xs text-foreground/50 mt-0.5 truncate">From: {c.from_email}</span>
@@ -182,7 +182,7 @@ export default function CampaignsPage() {
 
                   {/* Status and List Group (Row on Mobile) */}
                   <div className="flex justify-between items-center w-full md:contents mb-2 md:mb-0">
-                    <div className="flex flex-col md:col-span-2 md:block">
+                    <div className="flex flex-col md:block">
                       <span className="md:hidden text-[10px] uppercase font-bold text-foreground/40 mb-1">Status</span>
                       <span className="capitalize text-xs">
                         <span className={`px-2.5 py-0.5 border rounded-full inline-flex items-center space-x-1 ${
@@ -198,14 +198,14 @@ export default function CampaignsPage() {
                         </span>
                       </span>
                     </div>
-                    <div className="flex flex-col text-right md:text-left md:col-span-2 md:block min-w-0 pr-2">
+                    <div className="flex flex-col text-right md:text-left md:block min-w-0 pr-2">
                       <span className="md:hidden text-[10px] uppercase font-bold text-foreground/40 mb-1">Target List</span>
                       <span className="truncate font-medium text-foreground/80 block">{getListName(c.target_list)}</span>
                     </div>
                   </div>
 
                   {/* Sent / Scheduled Date Group */}
-                  <div className="flex flex-col md:col-span-2 md:block w-full mb-3 md:mb-0">
+                  <div className="flex flex-col md:block w-full mb-3 md:mb-0 pr-2">
                     <span className="md:hidden text-[10px] uppercase font-bold text-foreground/40 mb-1">
                       {c.status === 'scheduled' ? 'Scheduled For' : 'Sent / Scheduled'}
                     </span>
@@ -230,44 +230,44 @@ export default function CampaignsPage() {
                   </div>
 
                   {/* Actions Group */}
-                  <div className="w-full pt-3 border-t border-border/50 md:border-0 md:pt-0 md:col-span-3 text-left md:text-right">
+                  <div className="w-full pt-3 border-t border-border/50 md:border-0 md:pt-0 text-left md:text-right shrink-0">
                     {(c.status === 'draft' || c.status === 'failed') ? (
-                      <div className="flex items-center md:justify-end gap-1.5 flex-wrap">
+                      <div className="flex items-center md:justify-end gap-1.5 flex-wrap md:flex-nowrap">
                         <Button
-                          variant="outline"
-                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-primary border-primary/30 hover:bg-primary/10 gap-1 font-medium"
+                          variant="custom"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center rounded-md border border-primary/40 text-primary hover:bg-primary/10 gap-1 font-medium whitespace-nowrap shrink-0 transition-colors"
                           onClick={() => setTestModalCampaign(c)}
                         >
                           <MailCheck size={12} />
                           <span>Send Test</span>
                         </Button>
                         <Button
-                          variant="outline"
-                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10 gap-1 font-medium"
+                          variant="custom"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center rounded-md border border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/10 gap-1 font-medium whitespace-nowrap shrink-0 transition-colors"
                           onClick={() => setScheduleModalCampaign(c)}
                         >
                           <Calendar size={12} />
                           <span>Schedule</span>
                         </Button>
                         <Button
-                          variant="outline"
-                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center gap-1"
+                          variant="custom"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center rounded-md border border-border text-foreground hover:bg-foreground/10 gap-1 whitespace-nowrap shrink-0 transition-colors"
                           onClick={() => handleConvertToAdvanced(c.id, c.name)}
                         >
                           <Zap size={12} className="text-yellow-500" />
                           <span>To Advance</span>
                         </Button>
                         <Button
-                          variant="outline"
-                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-emerald-400 bg-emerald-500/10 border-emerald-500/40 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 gap-1 font-semibold transition-colors"
+                          variant="custom"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center rounded-md border border-green-600 bg-green-600 text-white hover:bg-green-500 hover:border-green-500 gap-1 font-semibold whitespace-nowrap shrink-0 transition-colors shadow-xs"
                           onClick={() => handleSendCampaign(c.id)}
                         >
-                          <Send size={12} />
+                          <Send size={12} className="text-white" />
                           <span>Send Now</span>
                         </Button>
                         <Button
-                          variant="outline"
-                          className="py-1 px-2.5 md:px-2 text-red-600 border-red-600/40 hover:bg-red-600 hover:text-white hover:border-red-600 w-full md:w-auto justify-center"
+                          variant="custom"
+                          className="py-1 px-2.5 md:px-2 rounded-md border border-red-600/40 text-red-500 hover:bg-red-600 hover:text-white hover:border-red-600 w-full md:w-auto justify-center shrink-0 transition-colors"
                           onClick={() => handleDeleteCampaign(c)}
                           aria-label={`Delete ${c.name}`}
                         >
@@ -276,42 +276,42 @@ export default function CampaignsPage() {
                         </Button>
                       </div>
                     ) : c.status === 'scheduled' ? (
-                      <div className="flex items-center md:justify-end gap-1.5 flex-wrap">
+                      <div className="flex items-center md:justify-end gap-1.5 flex-wrap md:flex-nowrap">
                         <Button
-                          variant="outline"
-                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-primary border-primary/30 hover:bg-primary/10 gap-1 font-medium"
+                          variant="custom"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center rounded-md border border-primary/40 text-primary hover:bg-primary/10 gap-1 font-medium whitespace-nowrap shrink-0 transition-colors"
                           onClick={() => setTestModalCampaign(c)}
                         >
                           <MailCheck size={12} />
                           <span>Send Test</span>
                         </Button>
                         <Button
-                          variant="outline"
-                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10 gap-1 font-semibold"
+                          variant="custom"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center rounded-md border border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/10 gap-1 font-semibold whitespace-nowrap shrink-0 transition-colors"
                           onClick={() => setScheduleModalCampaign(c)}
                         >
                           <CalendarClock size={12} />
                           <span>Reschedule</span>
                         </Button>
                         <Button
-                          variant="outline"
-                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center gap-1"
+                          variant="custom"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center rounded-md border border-border text-foreground hover:bg-foreground/10 gap-1 whitespace-nowrap shrink-0 transition-colors"
                           onClick={() => handleConvertToAdvanced(c.id, c.name)}
                         >
                           <Zap size={12} className="text-yellow-500" />
                           <span>To Advance</span>
                         </Button>
                         <Button
-                          variant="outline"
-                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-emerald-400 bg-emerald-500/10 border-emerald-500/40 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 gap-1 font-semibold transition-colors"
+                          variant="custom"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center rounded-md border border-green-600 bg-green-600 text-white hover:bg-green-500 hover:border-green-500 gap-1 font-semibold whitespace-nowrap shrink-0 transition-colors shadow-xs"
                           onClick={() => handleSendCampaign(c.id)}
                         >
-                          <Send size={12} />
+                          <Send size={12} className="text-white" />
                           <span>Send Now</span>
                         </Button>
                         <Button
-                          variant="outline"
-                          className="py-1 px-2.5 md:px-2 text-red-600 border-red-600/40 hover:bg-red-600 hover:text-white hover:border-red-600 w-full md:w-auto justify-center"
+                          variant="custom"
+                          className="py-1 px-2.5 md:px-2 rounded-md border border-red-600/40 text-red-500 hover:bg-red-600 hover:text-white hover:border-red-600 w-full md:w-auto justify-center shrink-0 transition-colors"
                           onClick={() => handleDeleteCampaign(c)}
                           aria-label={`Delete ${c.name}`}
                         >
@@ -322,10 +322,10 @@ export default function CampaignsPage() {
                     ) : c.status === 'sending' ? (
                       <span className="text-xs text-foreground/40 italic">Sending...</span>
                     ) : (
-                      <div className="flex items-center md:justify-end gap-1.5 flex-wrap">
+                      <div className="flex items-center md:justify-end gap-1.5 flex-wrap md:flex-nowrap">
                         <Button
                           variant="outline"
-                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center gap-1"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center gap-1 whitespace-nowrap shrink-0"
                           onClick={() => handleConvertToAdvanced(c.id, c.name)}
                         >
                           <Zap size={12} className="text-yellow-500" />
@@ -333,14 +333,14 @@ export default function CampaignsPage() {
                         </Button>
                         <Link
                           href={`/campaigns/${c.id}/analytics`}
-                          className="inline-flex items-center justify-center gap-1 w-full md:w-auto rounded-md border border-foreground bg-background px-2.5 py-1 text-xs font-medium hover:bg-foreground hover:text-background transition-colors"
+                          className="inline-flex items-center justify-center gap-1 w-full md:w-auto rounded-md border border-foreground bg-background px-2.5 py-1 text-xs font-medium hover:bg-foreground hover:text-background transition-colors whitespace-nowrap shrink-0"
                         >
                           <ChartNoAxesCombined size={13} />
                           View Analytics
                         </Link>
                         <Button
                           variant="outline"
-                          className="py-1 px-2.5 md:px-2 text-red-600 border-red-600/40 hover:bg-red-600 hover:text-white hover:border-red-600 w-full md:w-auto justify-center"
+                          className="py-1 px-2.5 md:px-2 text-red-600 border-red-600/40 hover:bg-red-600 hover:text-white hover:border-red-600 w-full md:w-auto justify-center shrink-0"
                           onClick={() => handleDeleteCampaign(c)}
                           aria-label={`Delete ${c.name}`}
                         >

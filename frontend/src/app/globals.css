@@ -14,6 +14,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);

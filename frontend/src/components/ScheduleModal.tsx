@@ -157,8 +157,8 @@ export default function ScheduleModal({
   const isRescheduling = Boolean(currentScheduledAt);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-      <div className="bg-card text-card-foreground border border-border rounded-xl shadow-2xl max-w-md w-full p-6 relative space-y-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+      <div className="bg-surface text-foreground border border-card-border rounded-xl shadow-2xl max-w-md w-full p-6 relative space-y-5">
         {/* Close Button */}
         <button
           onClick={onClose}
