@@ -79,12 +79,9 @@ export default function ContactsPage() {
       setAddError('Please enter a valid email address.');
       return;
     }
-    if (!newSelectedListId) {
-      setAddError('Please select a list for this contact.');
-      return;
-    }
-    if (!newSelectedBatchId) {
-      setAddError('Please select a batch for this contact.');
+    const targetListId = newSelectedListId || lists.find(l => l.is_default)?.id || lists[0]?.id;
+    if (!targetListId) {
+      setAddError('Please create or select a list for this contact.');
       return;
     }
 
@@ -94,8 +91,8 @@ export default function ContactsPage() {
         first_name: newFirstName,
         last_name: newLastName,
         is_subscribed: newSubscribed,
-        lists: [newSelectedListId],
-        batches: [newSelectedBatchId],
+        lists: [targetListId],
+        batches: newSelectedBatchId ? [newSelectedBatchId] : [],
       });
       setShowAddModal(false);
       setNewEmail('');
@@ -268,7 +265,11 @@ export default function ContactsPage() {
             <Upload size={16} />
             <span>Import CSV</span>
           </Button>
-          <Button onClick={() => setShowAddModal(true)} variant="outline" className="w-full sm:w-auto flex items-center justify-center gap-2">
+          <Button onClick={() => {
+            const defaultListId = lists.find(l => l.is_default)?.id || lists[0]?.id || null;
+            setNewSelectedListId(defaultListId);
+            setShowAddModal(true);
+          }} variant="outline" className="w-full sm:w-auto flex items-center justify-center gap-2">
             <Users size={16} />
             <span>Add Contact</span>
           </Button>
@@ -491,29 +492,25 @@ export default function ContactsPage() {
                   required
                 >
                   <option value="">-- Select a list --</option>
-                  {lists.filter(l => !l.is_default).map(list => (
+                  {lists.map(list => (
                     <option key={list.id} value={list.id}>{list.name}</option>
                   ))}
                 </select>
               </div>
 
-              {newSelectedListId && (
+              {newSelectedListId && allBatches.filter(b => b.contact_list === newSelectedListId).length > 0 && (
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold uppercase tracking-wider text-foreground/50">Select Batch <span className="text-red-500">*</span></label>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-foreground/50">Select Batch (Optional)</label>
                   <select
                     value={newSelectedBatchId ?? ''}
                     onChange={e => setNewSelectedBatchId(e.target.value ? Number(e.target.value) : null)}
                     className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background"
-                    required
                   >
-                    <option value="">-- Select a batch --</option>
+                    <option value="">-- Select a batch (optional) --</option>
                     {allBatches.filter(b => b.contact_list === newSelectedListId).map(batch => (
                       <option key={batch.id} value={batch.id}>{batch.name}</option>
                     ))}
                   </select>
-                  {allBatches.filter(b => b.contact_list === newSelectedListId).length === 0 && (
-                    <p className="text-[10px] text-amber-500 mt-1">No batches found for this list. Create a batch from the list page first.</p>
-                  )}
                 </div>
               )}
 

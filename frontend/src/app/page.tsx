@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Card from '../components/Card';
-import { Users, Mail, BarChart2, TrendingUp, Zap } from 'lucide-react';
+import { Users, Mail, BarChart2, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { apiClient } from '../services/apiClient';
 import { Campaign, ContactList } from '../types';
@@ -98,68 +98,6 @@ export default function DashboardPage() {
         <p className="text-foreground/50 mt-1 text-sm">Overview of your email marketing activity.</p>
       </div>
 
-      {/* Daily Sending Quota (Brevo Free Tier Limit) */}
-      <div className="mb-8 rounded-xl border border-border bg-card p-5 shadow-xs transition-all">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3.5">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 flex-shrink-0">
-              <Zap size={18} className="fill-yellow-500/20" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-semibold text-foreground">Today's Sending Quota</span>
-                <span className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full border border-border bg-foreground/5 text-foreground/70">
-                  Brevo Free Tier
-                </span>
-              </div>
-              <p className="text-xs text-foreground/50 mt-0.5">
-                Resets daily at 00:00 UTC • Tracks all live campaign blasts and test sends
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 self-start sm:self-auto">
-            <div className="text-left sm:text-right">
-              <div className="flex items-baseline gap-1">
-                <span className="text-2xl font-bold text-foreground">{loading ? '...' : dailyQuota.used}</span>
-                <span className="text-xs text-foreground/40 font-medium">/ {dailyQuota.limit} sent</span>
-              </div>
-            </div>
-            <div className={`text-xs font-semibold px-2.5 py-1 rounded-md border flex items-center gap-1 ${
-              dailyQuota.remaining > 50
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                : dailyQuota.remaining > 0
-                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                : 'bg-red-500/10 text-red-400 border-red-500/20'
-            }`}>
-              <span>{loading ? '...' : dailyQuota.remaining} remaining</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Progress Bar with indicator */}
-        <div className="space-y-1.5 pt-1">
-          <div className="w-full bg-foreground/10 rounded-full h-2 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ${
-                dailyQuota.percentage < 70
-                  ? 'bg-emerald-500'
-                  : dailyQuota.percentage < 90
-                  ? 'bg-amber-500'
-                  : 'bg-red-500'
-              }`}
-              style={{ width: `${Math.max(dailyQuota.percentage, dailyQuota.used > 0 ? 3 : 0)}%` }}
-            />
-          </div>
-          <div className="flex justify-between items-center text-[11px] text-foreground/40 font-medium">
-            <span>
-              {loading ? '...' : `${dailyQuota.percentage}% used today`}
-              {!loading && (dailyQuota as any).test_sent ? ` • ${(dailyQuota as any).campaign_sent || 0} blasts, ${(dailyQuota as any).test_sent} test sends` : ''}
-            </span>
-            <span>{loading ? '...' : `${dailyQuota.remaining} available`}</span>
-          </div>
-        </div>
-      </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">

@@ -12,7 +12,11 @@ import {
   RefreshCw, 
   Wrench, 
   Check, 
-  Info
+  Info,
+  FileSpreadsheet,
+  FileText,
+  Database,
+  File
 } from 'lucide-react';
 import { apiClient } from '@/services/apiClient';
 
@@ -67,7 +71,7 @@ export default function ToolkitPage() {
   const [fixSuccessMessage, setFixSuccessMessage] = useState<string | null>(null);
 
   // Tab 3: Backup State
-  const [backupDownloading, setBackupDownloading] = useState(false);
+  const [downloadingFormat, setDownloadingFormat] = useState<string | null>(null);
 
   useEffect(() => {
     // Initial domain lookup on load
@@ -109,16 +113,21 @@ export default function ToolkitPage() {
     }
   }
 
-  async function downloadBackup() {
-    setBackupDownloading(true);
+  async function downloadBackup(format: 'json' | 'xlsx' | 'csv' | 'pdf') {
+    setDownloadingFormat(format);
     try {
-      const filename = `email_marketing_backup_${new Date().toISOString().slice(0, 10)}.json`;
-      await apiClient.download('/api/v1/toolkit/backup/', filename);
+      const nowStr = new Date().toISOString().slice(0, 10);
+      let filename = `email_marketing_backup_${nowStr}.json`;
+      if (format === 'xlsx') filename = `email_marketing_backup_${nowStr}.xlsx`;
+      else if (format === 'csv') filename = `contacts_export_${nowStr}.csv`;
+      else if (format === 'pdf') filename = `email_marketing_summary_${nowStr}.pdf`;
+
+      await apiClient.download(`/api/v1/toolkit/backup/?format=${format}`, filename);
     } catch (err) {
-      console.error('Failed to download backup:', err);
-      alert('Failed to download backup. Please try again.');
+      console.error(`Failed to download ${format} backup:`, err);
+      alert(`Failed to download ${format.toUpperCase()} export. Please try again.`);
     } finally {
-      setBackupDownloading(false);
+      setDownloadingFormat(null);
     }
   }
 
@@ -440,33 +449,109 @@ export default function ToolkitPage() {
             <div>
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Download size={16} className="text-blue-400" />
-                1-Click Database Export &amp; Backup
+                Data Export &amp; Database Backup
               </h3>
               <p className="text-xs text-foreground/50 mt-1">
-                Exports a structured JSON backup of your entire subscriber list, templates, and campaigns to your computer.
+                Export your subscribers, email templates, campaigns, and delivery logs in your preferred file format.
               </p>
             </div>
 
-            <div className="p-4 bg-background/60 rounded-lg border border-border/30 space-y-2 text-xs text-foreground/70">
-              <div className="font-semibold text-foreground">Included in this export:</div>
-              <ul className="list-disc pl-5 space-y-1 text-foreground/60">
-                <li>All Contacts &amp; Contact Lists (Email addresses, names, custom fields)</li>
-                <li>All Campaigns &amp; Scheduled Blasts (Subject lines, settings, delivery logs)</li>
-                <li>All Email Templates (HTML markup, CSS, and personalization tags)</li>
-                <li>Bounced &amp; Suppressed Email Records</li>
-              </ul>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              {/* Option 1: Excel */}
+              <div className="p-4 rounded-lg border border-border/60 bg-background/50 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-foreground font-medium text-sm">
+                    <FileSpreadsheet size={16} className="text-emerald-400" />
+                    Excel Workbook (.xlsx)
+                  </div>
+                  <p className="text-xs text-foreground/60 leading-relaxed">
+                    Formatted multi-tab spreadsheet containing Contacts, Campaigns, Email Templates, and Bounce Logs.
+                  </p>
+                </div>
+                <div className="pt-4">
+                  <Button
+                    variant="custom"
+                    onClick={() => downloadBackup('xlsx')}
+                    disabled={downloadingFormat !== null}
+                    className="w-full bg-surface hover:bg-surface/80 text-foreground border border-border/60 text-xs py-2 px-3 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                    <Download size={13} className={downloadingFormat === 'xlsx' ? 'animate-spin' : ''} />
+                    {downloadingFormat === 'xlsx' ? 'Preparing Excel...' : 'Download Excel (.xlsx)'}
+                  </Button>
+                </div>
+              </div>
 
-            <div className="pt-2">
-              <Button
-                variant="custom"
-                onClick={downloadBackup}
-                disabled={backupDownloading}
-                className="bg-blue-600 hover:bg-blue-500 text-white border-blue-600 text-xs py-2 px-4 flex items-center gap-2"
-              >
-                <Download size={14} className={backupDownloading ? 'animate-spin' : ''} />
-                {backupDownloading ? 'Generating Backup...' : 'Download Complete JSON Backup'}
-              </Button>
+              {/* Option 2: CSV */}
+              <div className="p-4 rounded-lg border border-border/60 bg-background/50 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-foreground font-medium text-sm">
+                    <FileText size={16} className="text-sky-400" />
+                    Contacts CSV (.csv)
+                  </div>
+                  <p className="text-xs text-foreground/60 leading-relaxed">
+                    Universal comma-separated table of all contact emails, names, subscriber lists, and subscription statuses.
+                  </p>
+                </div>
+                <div className="pt-4">
+                  <Button
+                    variant="custom"
+                    onClick={() => downloadBackup('csv')}
+                    disabled={downloadingFormat !== null}
+                    className="w-full bg-surface hover:bg-surface/80 text-foreground border border-border/60 text-xs py-2 px-3 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                    <Download size={13} className={downloadingFormat === 'csv' ? 'animate-spin' : ''} />
+                    {downloadingFormat === 'csv' ? 'Preparing CSV...' : 'Download CSV (.csv)'}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Option 3: JSON */}
+              <div className="p-4 rounded-lg border border-border/60 bg-background/50 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-foreground font-medium text-sm">
+                    <Database size={16} className="text-indigo-400" />
+                    Full Database JSON (.json)
+                  </div>
+                  <p className="text-xs text-foreground/60 leading-relaxed">
+                    Complete structured JSON backup of your application data suitable for system migrations or code backups.
+                  </p>
+                </div>
+                <div className="pt-4">
+                  <Button
+                    variant="custom"
+                    onClick={() => downloadBackup('json')}
+                    disabled={downloadingFormat !== null}
+                    className="w-full bg-surface hover:bg-surface/80 text-foreground border border-border/60 text-xs py-2 px-3 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                    <Download size={13} className={downloadingFormat === 'json' ? 'animate-spin' : ''} />
+                    {downloadingFormat === 'json' ? 'Preparing JSON...' : 'Download JSON (.json)'}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Option 4: PDF */}
+              <div className="p-4 rounded-lg border border-border/60 bg-background/50 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-foreground font-medium text-sm">
+                    <File size={16} className="text-rose-400" />
+                    Summary Report PDF (.pdf)
+                  </div>
+                  <p className="text-xs text-foreground/60 leading-relaxed">
+                    Clean printable executive summary with database metrics, system health, and recent campaign performance.
+                  </p>
+                </div>
+                <div className="pt-4">
+                  <Button
+                    variant="custom"
+                    onClick={() => downloadBackup('pdf')}
+                    disabled={downloadingFormat !== null}
+                    className="w-full bg-surface hover:bg-surface/80 text-foreground border border-border/60 text-xs py-2 px-3 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                    <Download size={13} className={downloadingFormat === 'pdf' ? 'animate-spin' : ''} />
+                    {downloadingFormat === 'pdf' ? 'Preparing PDF...' : 'Download PDF (.pdf)'}
+                  </Button>
+                </div>
+              </div>
             </div>
           </Card>
         </div>

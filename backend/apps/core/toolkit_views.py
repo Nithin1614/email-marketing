@@ -465,6 +465,152 @@ class ExportBackupView(APIView):
                 'failed_at': b.failed_at.isoformat() if b.failed_at else None
             })
 
+        export_fmt = request.query_params.get('format', 'json').lower().strip()
+
+        # Format 1: CSV Export (Contacts)
+        if export_fmt == 'csv':
+            import io
+            import csv
+            output = io.StringIO()
+            writer = csv.writer(output)
+            writer.writerow(['ID', 'Email', 'First Name', 'Last Name', 'Phone', 'Tags', 'Created At'])
+            for c in contacts_data:
+                writer.writerow([
+                    c.get('id'),
+                    c.get('email'),
+                    c.get('first_name'),
+                    c.get('last_name'),
+                    c.get('phone') or '',
+                    c.get('tags') or '',
+                    c.get('created_at') or ''
+                ])
+            response = HttpResponse(output.getvalue(), content_type='text/csv; charset=utf-8')
+            response['Content-Disposition'] = f'attachment; filename="contacts_export_{now_str}.csv"'
+            return response
+
+        # Format 2: Excel (.xlsx) Export (Multi-Tab Workbook)
+        elif export_fmt in ('xlsx', 'excel'):
+            import io
+            import openpyxl
+            wb = openpyxl.Workbook()
+            
+            # Tab 1: Contacts
+            ws_contacts = wb.active
+            ws_contacts.title = "Contacts"
+            ws_contacts.append(['ID', 'Email', 'First Name', 'Last Name', 'Phone', 'Tags', 'Created At'])
+            for c in contacts_data:
+                ws_contacts.append([
+                    c.get('id'), c.get('email'), c.get('first_name'), c.get('last_name'),
+                    c.get('phone') or '', str(c.get('tags') or ''), c.get('created_at') or ''
+                ])
+
+            # Tab 2: Campaigns
+            ws_campaigns = wb.create_sheet(title="Campaigns")
+            ws_campaigns.append(['ID', 'Campaign Name', 'Subject', 'Status', 'Scheduled At', 'Sent At', 'Created At'])
+            for camp in campaigns_data:
+                ws_campaigns.append([
+                    camp.get('id'), camp.get('name'), camp.get('subject'), camp.get('status'),
+                    camp.get('scheduled_at') or '', camp.get('sent_at') or '', camp.get('created_at') or ''
+                ])
+
+            # Tab 3: Templates
+            ws_templates = wb.create_sheet(title="Templates")
+            ws_templates.append(['ID', 'Template Name', 'Subject', 'Created At'])
+            for t in templates_data:
+                ws_templates.append([
+                    t.get('id'), t.get('name'), t.get('subject'), t.get('created_at') or ''
+                ])
+
+            # Tab 4: Bounced Emails
+            ws_bounces = wb.create_sheet(title="Bounced Emails")
+            ws_bounces.append(['ID', 'Email', 'Campaign', 'Status', 'Failed At'])
+            for b in bounces_data:
+                ws_bounces.append([
+                    b.get('id'), b.get('email'), b.get('campaign_name'), b.get('status'), b.get('failed_at') or ''
+                ])
+
+            buffer = io.BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+            response = HttpResponse(
+                buffer.getvalue(),
+                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            response['Content-Disposition'] = f'attachment; filename="email_marketing_backup_{now_str}.xlsx"'
+            return response
+
+        # Format 3: PDF Summary Report
+        elif export_fmt == 'pdf':
+            import io
+            from reportlab.lib.pagesizes import letter
+            from reportlab.pdfgen import canvas
+
+            buffer = io.BytesIO()
+            p = canvas.Canvas(buffer, pagesize=letter)
+            width, height = letter
+
+            # Header
+            p.setFont("Helvetica-Bold", 18)
+            p.drawString(50, height - 50, "Email Marketing Platform - Backup & Summary")
+            p.setFont("Helvetica", 9)
+            p.drawString(50, height - 68, f"Export Generated: {timezone.now().strftime('%B %d, %Y at %H:%M:%S UTC')}")
+            p.line(50, height - 76, width - 50, height - 76)
+
+            # Summary Statistics Section
+            p.setFont("Helvetica-Bold", 12)
+            p.drawString(50, height - 105, "1. Database Summary")
+            p.setFont("Helvetica", 10)
+            p.drawString(60, height - 125, f"• Total Contacts: {len(contacts_data)}")
+            p.drawString(60, height - 142, f"• Total Contact Lists: {len(lists_data)}")
+            p.drawString(60, height - 159, f"• Total Email Campaigns: {len(campaigns_data)}")
+            p.drawString(60, height - 176, f"• Total Email Templates: {len(templates_data)}")
+            p.drawString(60, height - 193, f"• Recorded Bounces: {len(bounces_data)}")
+
+            # Campaigns Overview Section
+            p.setFont("Helvetica-Bold", 12)
+            p.drawString(50, height - 230, "2. Recent Campaigns Overview")
+            p.setFont("Helvetica-Bold", 9)
+            p.drawString(50, height - 250, "Campaign Name")
+            p.drawString(240, height - 250, "Status")
+            p.drawString(320, height - 250, "Sent / Scheduled Date")
+            p.line(50, height - 255, width - 50, height - 255)
+
+            p.setFont("Helvetica", 9)
+            y = height - 270
+            for camp in campaigns_data[:12]:
+                name_str = (camp.get('name') or 'Unnamed')[:32]
+                status_str = camp.get('status') or 'draft'
+                date_str = (camp.get('sent_at') or camp.get('scheduled_at') or camp.get('created_at') or '—')[:19]
+                p.drawString(50, y, name_str)
+                p.drawString(240, y, status_str.capitalize())
+                p.drawString(320, y, date_str)
+                y -= 18
+                if y < 80:
+                    break
+
+            # Contacts Sample Section
+            if y > 140:
+                p.setFont("Helvetica-Bold", 12)
+                p.drawString(50, y - 20, "3. Contacts Sample (Recent)")
+                p.line(50, y - 26, width - 50, y - 26)
+                p.setFont("Helvetica", 9)
+                cy = y - 42
+                for c in contacts_data[:6]:
+                    full_name = f"{c.get('first_name', '')} {c.get('last_name', '')}".strip() or "—"
+                    p.drawString(50, cy, f"• {c.get('email', '')} ({full_name})")
+                    cy -= 16
+
+            p.setFont("Helvetica-Oblique", 8)
+            p.drawString(50, 35, "Confidential Email Marketing Backup Report • Generated automatically")
+
+            p.showPage()
+            p.save()
+            buffer.seek(0)
+            response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="email_marketing_summary_{now_str}.pdf"'
+            return response
+
+        # Format 4 (Default): Complete JSON Backup
         backup_payload = {
             "backup_version": "1.0",
             "created_at": timezone.now().isoformat(),
