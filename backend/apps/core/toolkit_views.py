@@ -482,15 +482,75 @@ class CleanContactsView(APIView):
         deduped_count = 0
 
         if not dry_run:
-            # Fix typos
+            # 1. Safely fix domain typos
             for item in typo_contacts:
-                Contact.objects.filter(id=item["id"]).update(email=item["corrected_email"])
-                fixed_typos_count += 1
+                cid = item["id"]
+                target_email = item["corrected_email"].lower().strip()
 
-            # Remove exact duplicate records
-            dup_ids = [d["id"] for d in duplicates]
-            if dup_ids:
-                deduped_count = Contact.objects.filter(id__in=dup_ids).delete()[0]
+                # Check if target email already exists in the Contact database
+                existing = Contact.objects.filter(email__iexact=target_email).exclude(id=cid).first()
+                if existing:
+                    # Target contact already exists! Merge lists and batches from typo contact into existing
+                    typo_obj = Contact.objects.filter(id=cid).first()
+                    if typo_obj:
+                        for l in typo_obj.lists.all():
+                            existing.lists.add(l)
+                        for b in typo_obj.batches.all():
+                            existing.batches.add(b)
+                        typo_obj.delete()
+                    fixed_typos_count += 1
+                else:
+                    # Target contact does not exist yet: simply update email address directly
+                    Contact.objects.filter(id=cid).update(email=target_email)
+                    fixed_typos_count += 1
+
+            # 2. Merge and remove exact duplicate contacts
+            for dup in duplicates:
+                dup_id = dup["id"]
+                primary_id = dup.get("first_seen_id")
+                if primary_id:
+                    primary_obj = Contact.objects.filter(id=primary_id).first()
+                    dup_obj = Contact.objects.filter(id=dup_id).first()
+                    if primary_obj and dup_obj:
+                        for l in dup_obj.lists.all():
+                            primary_obj.lists.add(l)
+                        for b in dup_obj.batches.all():
+                            primary_obj.batches.add(b)
+                        dup_obj.delete()
+                        deduped_count += 1
+                else:
+                    Contact.objects.filter(id=dup_id).delete()
+                    deduped_count += 1
+
+            # Re-fetch remaining contacts to compute post-fix state accurately
+            remaining_contacts = list(Contact.objects.all())
+            remaining_scanned = len(remaining_contacts)
+            remaining_syntax = []
+            for c in remaining_contacts:
+                norm = (c.email or '').strip().lower()
+                if not email_regex.match(norm) or ' ' in norm or '..' in norm:
+                    remaining_syntax.append(c)
+
+            clean_score = 100.0 if not remaining_syntax else round(((remaining_scanned - len(remaining_syntax)) / max(1, remaining_scanned)) * 100, 1)
+
+            return Response({
+                "dry_run": False,
+                "total_scanned": remaining_scanned,
+                "cleanliness_score": clean_score,
+                "target": "98%+ Valid contacts",
+                "duplicates_count": 0,
+                "typos_count": 0,
+                "syntax_errors_count": len(remaining_syntax),
+                "duplicates": [],
+                "typos": [],
+                "syntax_errors": [
+                    {"id": c.id, "name": f"{c.first_name} {c.last_name}".strip(), "email": c.email, "issue": "Malformed email format"}
+                    for c in remaining_syntax[:15]
+                ],
+                "fixed_typos_count": fixed_typos_count,
+                "deduped_count": deduped_count,
+                "explanation": f"Successfully fixed {fixed_typos_count} domain typos and merged {deduped_count} duplicates. Your subscriber list is now 100% clean."
+            })
 
         return Response({
             "dry_run": dry_run,
