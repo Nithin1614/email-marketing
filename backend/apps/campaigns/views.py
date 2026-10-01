@@ -114,72 +114,86 @@ class CampaignViewSet(viewsets.ModelViewSet):
             return Response({'error': 'No valid recipient email address provided.'}, status=status.HTTP_400_BAD_REQUEST)
 
         from .tasks import render_template
-        from django.core.mail import EmailMultiAlternatives
+        from django.core.mail import EmailMultiAlternatives, get_connection
         from django.utils.html import strip_tags
         from django.utils import timezone
+        from django.db import close_old_connections
+        import threading
+        import logging
 
-        subject_template = campaign.subject or campaign.template.subject
-        layout_template = campaign.template.html_content
-        if '{{ body }}' in layout_template:
-            layout_template = layout_template.replace('{{ body }}', campaign.template.body)
-        else:
-            layout_template += campaign.template.body
+        logger = logging.getLogger(__name__)
 
-        sender = campaign.podcast_sender or PodcastSender.objects.first()
-        brand_name = sender.name if sender else 'Web Design Team'
-        website_url = sender.website_url if sender else 'https://webdesign.com'
-        scheduling_link = getattr(sender, 'scheduling_link', 'https://calendly.com')
-        physical_address = sender.physical_address if sender else ''
-
-        sent_to = []
-        errors = []
-
-        for email_addr in emails:
+        def send_test_worker(campaign_id, email_list):
+            close_old_connections()
             try:
-                context = {}
-                if isinstance(campaign.template.variables, dict):
-                    context.update(campaign.template.variables)
+                camp = Campaign.objects.select_related('template', 'podcast_sender').filter(id=campaign_id).first()
+                if not camp:
+                    return
 
-                context.update({
-                    'first_name': 'Test User',
-                    'last_name': '',
-                    'email': email_addr,
-                    'subject': subject_template,
-                    'brand_name': brand_name,
-                    'website_url': website_url,
-                    'linkedin_url': getattr(sender, 'linkedin_url', ''),
-                    'scheduling_link': scheduling_link,
-                    'physical_address': physical_address,
-                    'current_year': str(timezone.now().year),
-                })
+                subject_template = camp.subject or (camp.template.subject if camp.template else 'Preview Email')
+                layout_template = camp.template.html_content if camp.template else ''
+                body_content = camp.template.body if camp.template else ''
+                if '{{ body }}' in layout_template:
+                    layout_template = layout_template.replace('{{ body }}', body_content)
+                else:
+                    layout_template += body_content
 
-                html_content = render_template(layout_template, context)
-                text_content = strip_tags(html_content)
-                rendered_subject = "[TEST] " + "".join(render_template(subject_template, context).splitlines())
+                sender = camp.podcast_sender or PodcastSender.objects.first()
+                brand_name = sender.name if sender else 'Web Design Team'
+                website_url = sender.website_url if sender else 'https://webdesign.com'
+                scheduling_link = getattr(sender, 'scheduling_link', 'https://calendly.com')
+                physical_address = sender.physical_address if sender else ''
 
-                from_addr = campaign.from_email or getattr(settings, 'DEFAULT_FROM_EMAIL', 'Web Design Team <webdesign.team24@gmail.com>')
+                from_addr = camp.from_email or getattr(settings, 'DEFAULT_FROM_EMAIL', 'Web Design Team <webdesign.team24@gmail.com>')
 
-                email = EmailMultiAlternatives(
-                    subject=rendered_subject,
-                    body=text_content,
-                    from_email=from_addr,
-                    to=[email_addr],
-                    headers={'X-Mailin-Tag': f'test-campaign-{campaign.id}'},
-                )
-                email.attach_alternative(html_content, 'text/html')
-                email.send(fail_silently=False)
-                sent_to.append(email_addr)
-            except Exception as e:
-                errors.append(f"{email_addr}: {str(e)}")
+                messages = []
+                for email_addr in email_list:
+                    context = {}
+                    if camp.template and isinstance(camp.template.variables, dict):
+                        context.update(camp.template.variables)
 
-        if not sent_to:
-            return Response({'error': f"Failed to send test emails: {'; '.join(errors)}"}, status=status.HTTP_400_BAD_REQUEST)
+                    context.update({
+                        'first_name': 'Test User',
+                        'last_name': '',
+                        'email': email_addr,
+                        'subject': subject_template,
+                        'brand_name': brand_name,
+                        'website_url': website_url,
+                        'linkedin_url': getattr(sender, 'linkedin_url', ''),
+                        'scheduling_link': scheduling_link,
+                        'physical_address': physical_address,
+                        'current_year': str(timezone.now().year),
+                    })
+
+                    html_content = render_template(layout_template, context)
+                    text_content = strip_tags(html_content)
+                    rendered_subject = "[TEST] " + "".join(render_template(subject_template, context).splitlines())
+
+                    msg = EmailMultiAlternatives(
+                        subject=rendered_subject,
+                        body=text_content,
+                        from_email=from_addr,
+                        to=[email_addr],
+                        headers={'X-Mailin-Tag': f'test-campaign-{camp.id}'},
+                    )
+                    msg.attach_alternative(html_content, 'text/html')
+                    messages.append(msg)
+
+                if messages:
+                    connection = get_connection()
+                    connection.send_messages(messages)
+                    logger.info("Successfully sent %d test email(s) for campaign %s", len(messages), camp.id)
+            except Exception as exc:
+                logger.error("Error in test email worker for campaign %s: %s", campaign_id, exc)
+            finally:
+                close_old_connections()
+
+        threading.Thread(target=send_test_worker, args=(campaign.id, emails), daemon=True).start()
 
         return Response({
             'status': 'success',
-            'sent_to': sent_to,
-            'errors': errors,
-            'message': f"Test email sent to {len(sent_to)} recipient(s)!"
+            'sent_to': emails,
+            'message': f"Test email queued for {len(emails)} recipient(s)! Check your inbox shortly."
         })
 
     @action(detail=True, methods=['post'], url_path='convert-to-advanced')

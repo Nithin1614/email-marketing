@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 from decouple import Config, RepositoryEnv
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -182,10 +183,14 @@ REST_FRAMEWORK = {
 # Email Backend — Brevo SMTP
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp-relay.brevo.com')
-EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_PORT = config('EMAIL_PORT', default=2525, cast=int)
+# Render free tier blocks outbound port 587; Brevo provides port 2525 as official alternative
+if os.environ.get('RENDER') and EMAIL_PORT in (587, 465, 25):
+    EMAIL_PORT = 2525
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = True
+EMAIL_TIMEOUT = 25
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Marketing <noreply@example.com>')
 BREVO_API_KEY = config('BREVO_API_KEY', default='')
 

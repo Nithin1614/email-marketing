@@ -51,7 +51,13 @@ export const apiClient = {
     });
     handleUnauthorized(response);
     if (!response.ok) {
-      throw new Error(`POST ${endpoint} failed: ${response.statusText}`);
+      let errorMsg = response.statusText;
+      try {
+        const errData = await response.json();
+        if (errData.error) errorMsg = errData.error;
+        else if (errData.detail) errorMsg = errData.detail;
+      } catch (e) {}
+      throw new Error(errorMsg || `POST ${endpoint} failed: ${response.statusText}`);
     }
     return response.json();
   },
