@@ -259,7 +259,7 @@ export default function CampaignsPage() {
                         </Button>
                         <Button
                           variant="outline"
-                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center gap-1 font-medium"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-emerald-400 bg-emerald-500/10 border-emerald-500/40 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 gap-1 font-semibold transition-colors"
                           onClick={() => handleSendCampaign(c.id)}
                         >
                           <Send size={12} />
@@ -303,7 +303,7 @@ export default function CampaignsPage() {
                         </Button>
                         <Button
                           variant="outline"
-                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center gap-1 font-medium"
+                          className="py-1 px-2.5 text-xs w-full md:w-auto justify-center text-emerald-400 bg-emerald-500/10 border-emerald-500/40 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 gap-1 font-semibold transition-colors"
                           onClick={() => handleSendCampaign(c.id)}
                         >
                           <Send size={12} />
