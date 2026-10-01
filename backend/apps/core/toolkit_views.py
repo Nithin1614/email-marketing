@@ -1,5 +1,6 @@
 import re
 import json
+import difflib
 import requests
 from django.utils import timezone
 from django.http import HttpResponse
@@ -303,14 +304,53 @@ class ScanSpamView(APIView):
         })
 
 
+def min_edit_distance(s1, s2):
+    """Calculates Levenshtein edit distance between two strings."""
+    m, n = len(s1), len(s2)
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+    for i in range(m + 1):
+        dp[i][0] = i
+    for j in range(n + 1):
+        dp[0][j] = j
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if s1[i - 1] == s2[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]
+            else:
+                dp[i][j] = 1 + min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+    return dp[m][n]
+
+
 class CleanContactsView(APIView):
     permission_classes = [IsAuthenticated]
 
-    # Domain typo mapping dictionary
+    TARGET_PROVIDERS = {
+        'gmail.com': {'prefix': 'gm', 'name': 'gmail'},
+        'googlemail.com': {'prefix': 'goog', 'name': 'googlemail'},
+        'yahoo.com': {'prefix': 'ya', 'name': 'yahoo'},
+        'hotmail.com': {'prefix': 'hot', 'name': 'hotmail'},
+        'outlook.com': {'prefix': 'out', 'name': 'outlook'},
+        'icloud.com': {'prefix': 'ic', 'name': 'icloud'},
+        'zoho.com': {'prefix': 'zo', 'name': 'zoho'},
+        'proton.me': {'prefix': 'pro', 'name': 'proton'},
+        'protonmail.com': {'prefix': 'pro', 'name': 'protonmail'},
+    }
+
+    TLD_TYPOS = {
+        '.comm': '.com', '.con': '.com', '.coom': '.com', '.cpm': '.com',
+        '.cmo': '.com', '.come': '.com', '.cm': '.com', '.co.m': '.com',
+        '.ocm': '.com', '.nett': '.net', '.ner': '.net', '.orgg': '.org',
+        '.og': '.org', '.ogr': '.org'
+    }
+
+    # Common exact lookup catalog
     TYPO_MAP = {
         "gamil.com": "gmail.com",
         "gmai.com": "gmail.com",
         "gmaill.com": "gmail.com",
+        "gmaail.com": "gmail.com",
+        "gmaail.comm": "gmail.com",
+        "gmaill.comm": "gmail.com",
         "gmial.com": "gmail.com",
         "gmal.com": "gmail.com",
         "g-mail.com": "gmail.com",
@@ -330,6 +370,56 @@ class CleanContactsView(APIView):
         "prtonmail.com": "protonmail.com",
         "zho.com": "zoho.com"
     }
+
+    @classmethod
+    def detect_typo(cls, raw_domain):
+        domain = raw_domain.lower().strip()
+        if domain in cls.TARGET_PROVIDERS:
+            return None  # Already 100% clean provider
+
+        # 1. Direct dictionary match
+        if domain in cls.TYPO_MAP:
+            return cls.TYPO_MAP[domain]
+
+        # 2. TLD distortion normalization (.comm, .con, .cpm, etc.)
+        fixed_tld_domain = domain
+        has_tld_typo = False
+        for tld_err, tld_fix in cls.TLD_TYPOS.items():
+            if domain.endswith(tld_err):
+                fixed_tld_domain = domain[:-len(tld_err)] + tld_fix
+                has_tld_typo = True
+                break
+
+        if fixed_tld_domain in cls.TARGET_PROVIDERS:
+            return fixed_tld_domain
+
+        if fixed_tld_domain in cls.TYPO_MAP:
+            return cls.TYPO_MAP[fixed_tld_domain]
+
+        # 3. Robust Fuzzy / Levenshtein matching against major consumer providers
+        parts = fixed_tld_domain.split('.')
+        if len(parts) < 2:
+            return None
+        name_part = parts[0]
+
+        best_target = None
+        best_score = -1
+
+        for target_domain, meta in cls.TARGET_PROVIDERS.items():
+            t_name = meta['name']
+            dist = min_edit_distance(name_part, t_name)
+            sim = difflib.SequenceMatcher(None, name_part, t_name).ratio()
+
+            starts_match = name_part.startswith(meta['prefix'][0])
+
+            # Detect combinations even with up to 3+ typos (e.g. gmaail.comm, gmaaiil.comm)
+            if starts_match and dist <= 3 and sim >= 0.65:
+                score = sim * 10 - dist
+                if score > best_score:
+                    best_score = score
+                    best_target = target_domain
+
+        return best_target
 
     def post(self, request):
         dry_run = request.data.get('dry_run', True)
@@ -369,19 +459,19 @@ class CleanContactsView(APIView):
             else:
                 seen_emails[norm_email] = c.id
 
-            # 3. Domain typo check
+            # 3. Robust Domain typo check
             parts = norm_email.split('@')
             if len(parts) == 2:
                 user_part, domain_part = parts
-                if domain_part in self.TYPO_MAP:
-                    corrected_domain = self.TYPO_MAP[domain_part]
+                suggestion = self.detect_typo(domain_part)
+                if suggestion and suggestion != domain_part:
                     typo_contacts.append({
                         "id": c.id,
                         "name": f"{c.first_name} {c.last_name}".strip(),
                         "original_email": raw_email,
-                        "corrected_email": f"{user_part}@{corrected_domain}",
+                        "corrected_email": f"{user_part}@{suggestion}",
                         "typo": domain_part,
-                        "suggestion": corrected_domain
+                        "suggestion": suggestion
                     })
 
         total_issues = len(duplicates) + len(typo_contacts) + len(syntax_errors)
@@ -422,12 +512,17 @@ class CleanContactsView(APIView):
 class ExportBackupView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def perform_content_negotiation(self, request, force=False):
+        """Bypass DRF format suffix negotiation so ?format= or ?export_format= never triggers 404."""
+        from rest_framework.renderers import JSONRenderer
+        return (JSONRenderer(), JSONRenderer.media_type)
+
     def get(self, request):
         now_str = timezone.now().strftime("%Y-%m-%d_%H%M")
 
         # 1. Contacts
         contacts_data = list(Contact.objects.values(
-            'id', 'email', 'first_name', 'last_name', 'phone', 'tags', 'created_at'
+            'id', 'email', 'first_name', 'last_name', 'is_subscribed', 'created_at'
         ))
         for c in contacts_data:
             if c.get('created_at'):
@@ -465,7 +560,11 @@ class ExportBackupView(APIView):
                 'failed_at': b.failed_at.isoformat() if b.failed_at else None
             })
 
-        export_fmt = request.query_params.get('format', 'json').lower().strip()
+        export_fmt = (
+            request.query_params.get('export_format') or 
+            request.query_params.get('file_type') or 
+            request.query_params.get('format', 'json')
+        ).lower().strip()
 
         # Format 1: CSV Export (Contacts)
         if export_fmt == 'csv':
@@ -473,15 +572,14 @@ class ExportBackupView(APIView):
             import csv
             output = io.StringIO()
             writer = csv.writer(output)
-            writer.writerow(['ID', 'Email', 'First Name', 'Last Name', 'Phone', 'Tags', 'Created At'])
+            writer.writerow(['ID', 'Email', 'First Name', 'Last Name', 'Subscribed', 'Created At'])
             for c in contacts_data:
                 writer.writerow([
                     c.get('id'),
                     c.get('email'),
                     c.get('first_name'),
                     c.get('last_name'),
-                    c.get('phone') or '',
-                    c.get('tags') or '',
+                    'Yes' if c.get('is_subscribed') else 'No',
                     c.get('created_at') or ''
                 ])
             response = HttpResponse(output.getvalue(), content_type='text/csv; charset=utf-8')
@@ -497,11 +595,11 @@ class ExportBackupView(APIView):
             # Tab 1: Contacts
             ws_contacts = wb.active
             ws_contacts.title = "Contacts"
-            ws_contacts.append(['ID', 'Email', 'First Name', 'Last Name', 'Phone', 'Tags', 'Created At'])
+            ws_contacts.append(['ID', 'Email', 'First Name', 'Last Name', 'Subscribed', 'Created At'])
             for c in contacts_data:
                 ws_contacts.append([
                     c.get('id'), c.get('email'), c.get('first_name'), c.get('last_name'),
-                    c.get('phone') or '', str(c.get('tags') or ''), c.get('created_at') or ''
+                    'Yes' if c.get('is_subscribed') else 'No', c.get('created_at') or ''
                 ])
 
             # Tab 2: Campaigns

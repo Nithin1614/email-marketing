@@ -122,7 +122,7 @@ export default function ToolkitPage() {
       else if (format === 'csv') filename = `contacts_export_${nowStr}.csv`;
       else if (format === 'pdf') filename = `email_marketing_summary_${nowStr}.pdf`;
 
-      await apiClient.download(`/api/v1/toolkit/backup/?format=${format}`, filename);
+      await apiClient.download(`/api/v1/toolkit/backup/?export_format=${format}&format=${format}`, filename);
     } catch (err) {
       console.error(`Failed to download ${format} backup:`, err);
       alert(`Failed to download ${format.toUpperCase()} export. Please try again.`);
