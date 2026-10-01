@@ -7,7 +7,17 @@ function getToken(): string | null {
     const local = localStorage.getItem('auth_token');
     if (local && local !== 'preview_token') return local;
   }
-  return '0cd0f91c9a6178eed459b3d97d79d932687617ed';
+  return null;
+}
+
+function handleUnauthorized(response: Response) {
+  if (response.status === 401 && typeof window !== 'undefined') {
+    if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/public/')) {
+      document.cookie = 'auth_token=; path=/; max-age=0; SameSite=Lax';
+      localStorage.removeItem('auth_token');
+      window.location.href = '/login';
+    }
+  }
 }
 
 function getHeaders(): Record<string, string> {
@@ -25,6 +35,7 @@ export const apiClient = {
       headers: getHeaders(),
       cache: 'no-store',
     });
+    handleUnauthorized(response);
     if (!response.ok) {
       throw new Error(`GET ${endpoint} failed: ${response.statusText}`);
     }
@@ -38,6 +49,7 @@ export const apiClient = {
       cache: 'no-store',
       body: JSON.stringify(data),
     });
+    handleUnauthorized(response);
     if (!response.ok) {
       throw new Error(`POST ${endpoint} failed: ${response.statusText}`);
     }
@@ -51,6 +63,7 @@ export const apiClient = {
       cache: 'no-store',
       body: JSON.stringify(data),
     });
+    handleUnauthorized(response);
     if (!response.ok) {
       throw new Error(`PATCH ${endpoint} failed: ${response.statusText}`);
     }
@@ -63,6 +76,7 @@ export const apiClient = {
       headers: getHeaders(),
       cache: 'no-store',
     });
+    handleUnauthorized(response);
     if (!response.ok) {
       let errorMsg = response.statusText;
       try {
@@ -78,6 +92,7 @@ export const apiClient = {
       method: 'GET',
       headers: getHeaders(),
     });
+    handleUnauthorized(response);
     if (!response.ok) {
       throw new Error(`Download failed: ${response.statusText}`);
     }
