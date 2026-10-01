@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Home, Mail, Users, FileText, ChevronLeft, ChevronRight, MailWarning, LogOut, X, Library, LayoutTemplate, BarChart3 } from 'lucide-react';
+import { Home, Mail, Users, FileText, ChevronLeft, ChevronRight, MailWarning, LogOut, X, Library, LayoutTemplate, BarChart3, Activity, Wrench } from 'lucide-react';
 import { apiClient } from '@/services/apiClient';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
@@ -88,6 +88,27 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }: { mobileM
           <MailWarning size={18} />
           {!isCollapsed && <span>Bounced Mails</span>}
         </Link>
+
+        <div className="pt-2 border-t border-border/50 my-1" />
+
+        <Link 
+          href="/system-health" 
+          title="System Health" 
+          className={`flex items-center p-2 hover:bg-hover-bg hover:text-foreground rounded-md transition-colors font-medium ${pathname === '/system-health' ? 'bg-hover-bg text-emerald-400 font-semibold' : ''} ${isCollapsed ? 'justify-center' : 'space-x-3'}`}
+        >
+          <Activity size={18} className="text-emerald-500 shrink-0" />
+          {!isCollapsed && <span>System Health</span>}
+        </Link>
+
+        <Link 
+          href="/toolkit" 
+          title="Toolkit" 
+          className={`flex items-center p-2 hover:bg-hover-bg hover:text-foreground rounded-md transition-colors font-medium ${pathname === '/toolkit' ? 'bg-hover-bg text-blue-400 font-semibold' : ''} ${isCollapsed ? 'justify-center' : 'space-x-3'}`}
+        >
+          <Wrench size={18} className="text-blue-400 shrink-0" />
+          {!isCollapsed && <span>Toolkit</span>}
+        </Link>
+
         <button 
           onClick={apiClient.logout}
           title="Logout" 

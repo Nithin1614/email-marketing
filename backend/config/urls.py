@@ -22,6 +22,12 @@ from rest_framework.authtoken.views import obtain_auth_token
 
 def health_check(request):
     try:
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("UPDATE core_systemheartbeat SET last_ping = NOW() WHERE id = 1;")
+    except Exception:
+        pass
+    try:
         from apps.campaigns.views import check_and_send_due_campaigns
         check_and_send_due_campaigns()
     except Exception:
@@ -33,6 +39,8 @@ from apps.templates.views import EmailTemplateViewSet
 from apps.campaigns.views import CampaignViewSet, SenderListView, AdvanceCampaignViewSet, PodcastSenderViewSet
 from apps.tracking.views import CampaignPerformanceViewSet, CampaignAnalyticsViewSet, BrevoWebhookView, BouncedEmailViewSet, PublicCampaignAnalyticsView, MasterLinkSettingsView, PublicMasterLinkCampaignsView, PublicAdvanceCampaignView, PublicMasterLinkRecentsView, PublicMasterLinkContactsView
 from apps.core.views import DashboardSummaryView
+from apps.core.system_views import SystemHealthView, RunDiagnosticsView, PruneLogsView
+from apps.core.toolkit_views import CheckDomainDnsView, ScanSpamView, CleanContactsView, ExportBackupView
 
 
 def ensure_db_schema():
@@ -86,6 +94,15 @@ def ensure_db_schema():
                 );
             """)
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS core_systemheartbeat (
+                    id INT PRIMARY KEY,
+                    last_ping TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                );
+                INSERT INTO core_systemheartbeat (id, last_ping)
+                VALUES (1, NOW())
+                ON CONFLICT (id) DO NOTHING;
+            """)
+            cursor.execute("""
                 INSERT INTO django_migrations (app, name, applied)
                 SELECT 'campaigns', '0011_advancecampaign_share_token', NOW()
                 WHERE NOT EXISTS (
@@ -137,5 +154,14 @@ urlpatterns = [
     path('api/v1/public/master-link/<uuid:token>/campaigns/', PublicMasterLinkCampaignsView.as_view(), name='public-master-link-campaigns'),
     path('api/v1/public/master-link/<uuid:token>/recents/', PublicMasterLinkRecentsView.as_view(), name='public-master-link-recents'),
     path('api/v1/public/master-link/<uuid:token>/contacts/', PublicMasterLinkContactsView.as_view(), name='public-master-link-contacts'),
+    # System Health & Operations
+    path('api/v1/system/health/', SystemHealthView.as_view(), name='system-health'),
+    path('api/v1/system/run-diagnostics/', RunDiagnosticsView.as_view(), name='system-run-diagnostics'),
+    path('api/v1/system/prune-logs/', PruneLogsView.as_view(), name='system-prune-logs'),
+    # Marketing Toolkit
+    path('api/v1/toolkit/check-domain/', CheckDomainDnsView.as_view(), name='toolkit-check-domain'),
+    path('api/v1/toolkit/scan-spam/', ScanSpamView.as_view(), name='toolkit-scan-spam'),
+    path('api/v1/toolkit/clean-contacts/', CleanContactsView.as_view(), name='toolkit-clean-contacts'),
+    path('api/v1/toolkit/backup/', ExportBackupView.as_view(), name='toolkit-backup'),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
 ]

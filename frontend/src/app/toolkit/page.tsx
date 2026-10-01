@@ -1,0 +1,651 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Card from '@/components/Card';
+import Button from '@/components/Button';
+import { 
+  ShieldCheck, 
+  Sparkles, 
+  Users, 
+  Download, 
+  Search, 
+  CheckCircle2, 
+  XCircle, 
+  AlertTriangle, 
+  RefreshCw, 
+  Wrench, 
+  Check, 
+  FileText, 
+  ExternalLink,
+  Info
+} from 'lucide-react';
+import { apiClient } from '@/services/apiClient';
+
+interface DnsCheckItem {
+  name: string;
+  short_name: string;
+  status: 'pass' | 'missing' | 'warning';
+  record: string | null;
+  selector?: string;
+  target: string;
+  explanation: string;
+  recommendation: string;
+}
+
+interface DomainCheckResponse {
+  domain: string;
+  score: number;
+  passed_count: number;
+  total_checks: number;
+  checks: DnsCheckItem[];
+  summary: string;
+}
+
+interface SpamScanResponse {
+  score: number;
+  rating: string;
+  rating_desc: string;
+  status_color: 'green' | 'amber' | 'red';
+  flags: Array<{
+    type: string;
+    severity: string;
+    title: string;
+    items?: string[];
+    penalty: number;
+    tip: string;
+  }>;
+  explanation: string;
+}
+
+interface ContactHygieneResponse {
+  dry_run: boolean;
+  total_scanned: number;
+  cleanliness_score: number;
+  target: string;
+  duplicates_count: number;
+  typos_count: number;
+  syntax_errors_count: number;
+  duplicates: Array<{ id: number; name: string; email: string }>;
+  typos: Array<{ id: number; name: string; original_email: string; corrected_email: string; typo: string; suggestion: string }>;
+  syntax_errors: Array<{ id: number; name: string; email: string; issue: string }>;
+  fixed_typos_count: number;
+  deduped_count: number;
+  explanation: string;
+}
+
+export default function ToolkitPage() {
+  const [activeTab, setActiveTab] = useState<'dns' | 'spam' | 'hygiene' | 'backup'>('dns');
+
+  // Tab 1: Domain DNS State
+  const [domainInput, setDomainInput] = useState('gmail.com');
+  const [dnsLoading, setDnsLoading] = useState(false);
+  const [dnsResult, setDnsResult] = useState<DomainCheckResponse | null>(null);
+
+  // Tab 2: Spam Scanner State
+  const [spamSubject, setSpamSubject] = useState('');
+  const [spamBody, setSpamBody] = useState('');
+  const [spamLoading, setSpamLoading] = useState(false);
+  const [spamResult, setSpamResult] = useState<SpamScanResponse | null>(null);
+
+  // Tab 3: Contact Hygiene State
+  const [hygieneLoading, setHygieneLoading] = useState(false);
+  const [fixingHygiene, setFixingHygiene] = useState(false);
+  const [hygieneResult, setHygieneResult] = useState<ContactHygieneResponse | null>(null);
+  const [fixSuccessMessage, setFixSuccessMessage] = useState<string | null>(null);
+
+  // Tab 4: Backup State
+  const [backupDownloading, setBackupDownloading] = useState(false);
+
+  useEffect(() => {
+    // Initial domain lookup on load
+    runDomainCheck('gmail.com');
+  }, []);
+
+  async function runDomainCheck(domainToCheck?: string) {
+    const target = (domainToCheck || domainInput).trim();
+    if (!target) return;
+    setDnsLoading(true);
+    try {
+      const res = await apiClient.get(`/api/v1/toolkit/check-domain/?domain=${encodeURIComponent(target)}`);
+      setDnsResult(res);
+    } catch (err) {
+      console.error('DNS check failed:', err);
+    } finally {
+      setDnsLoading(false);
+    }
+  }
+
+  async function runSpamScan() {
+    if (!spamSubject && !spamBody) return;
+    setSpamLoading(true);
+    try {
+      const res = await apiClient.post('/api/v1/toolkit/scan-spam/', {
+        subject: spamSubject,
+        body: spamBody
+      });
+      setSpamResult(res);
+    } catch (err) {
+      console.error('Spam scan failed:', err);
+    } finally {
+      setSpamLoading(false);
+    }
+  }
+
+  async function runHygieneScan(dryRun: boolean = true) {
+    if (dryRun) {
+      setHygieneLoading(true);
+    } else {
+      setFixingHygiene(true);
+    }
+    setFixSuccessMessage(null);
+    try {
+      const res = await apiClient.post('/api/v1/toolkit/clean-contacts/', { dry_run: dryRun });
+      setHygieneResult(res);
+      if (!dryRun) {
+        setFixSuccessMessage(`Successfully updated ${res.fixed_typos_count} typos and merged ${res.deduped_count} duplicate contacts!`);
+      }
+    } catch (err) {
+      console.error('Hygiene scan failed:', err);
+    } finally {
+      setHygieneLoading(false);
+      setFixingHygiene(false);
+    }
+  }
+
+  async function downloadBackup() {
+    setBackupDownloading(true);
+    try {
+      const filename = `email_marketing_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      await apiClient.download('/api/v1/toolkit/backup/', filename);
+    } catch (err) {
+      console.error('Failed to download backup:', err);
+      alert('Failed to download backup. Please try again.');
+    } finally {
+      setBackupDownloading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-8 max-w-7xl mx-auto pb-12">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/40 pb-5">
+        <div>
+          <div className="flex items-center space-x-3">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+              <Wrench className="text-blue-400 w-8 h-8" />
+              Marketing Toolkit
+            </h1>
+          </div>
+          <p className="text-sm text-foreground/60 mt-1">
+            Verify sender domain DNS, analyze email spam risk, clean subscriber lists, and backup data.
+          </p>
+        </div>
+      </div>
+
+      {/* Option A: Clean Top Tabs Navigation */}
+      <div className="flex items-center space-x-2 border-b border-border/40 overflow-x-auto pb-px">
+        <button
+          onClick={() => setActiveTab('dns')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
+            activeTab === 'dns'
+              ? 'border-blue-500 text-blue-400 bg-blue-500/10'
+              : 'border-transparent text-foreground/60 hover:text-foreground hover:bg-foreground/[0.03]'
+          }`}
+        >
+          <ShieldCheck size={16} />
+          Domain Deliverability (SPF/DKIM)
+        </button>
+
+        <button
+          onClick={() => setActiveTab('spam')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
+            activeTab === 'spam'
+              ? 'border-blue-500 text-blue-400 bg-blue-500/10'
+              : 'border-transparent text-foreground/60 hover:text-foreground hover:bg-foreground/[0.03]'
+          }`}
+        >
+          <Sparkles size={16} />
+          Spam Word &amp; Content Scanner
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab('hygiene');
+            if (!hygieneResult) runHygieneScan(true);
+          }}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
+            activeTab === 'hygiene'
+              ? 'border-blue-500 text-blue-400 bg-blue-500/10'
+              : 'border-transparent text-foreground/60 hover:text-foreground hover:bg-foreground/[0.03]'
+          }`}
+        >
+          <Users size={16} />
+          Contact Hygiene &amp; Deduplicator
+        </button>
+
+        <button
+          onClick={() => setActiveTab('backup')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
+            activeTab === 'backup'
+              ? 'border-blue-500 text-blue-400 bg-blue-500/10'
+              : 'border-transparent text-foreground/60 hover:text-foreground hover:bg-foreground/[0.03]'
+          }`}
+        >
+          <Download size={16} />
+          Database Backup &amp; Export
+        </button>
+      </div>
+
+      {/* TAB 1: DOMAIN DELIVERABILITY (SPF, DKIM, DMARC, MX) */}
+      {activeTab === 'dns' && (
+        <div className="space-y-6">
+          <Card className="p-5 border-card-border bg-surface">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Sender Domain Health &amp; DNS Verification</h3>
+                <p className="text-xs text-foreground/50 mt-0.5">
+                  Verify SPF, DKIM, DMARC, and MX records to ensure emails land in Primary inboxes rather than Spam.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={domainInput}
+                  onChange={(e) => setDomainInput(e.target.value)}
+                  placeholder="e.g. yourcompany.com"
+                  className="bg-background border border-border/60 rounded-md px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-blue-500 w-56"
+                />
+                <Button
+                  variant="custom"
+                  onClick={() => runDomainCheck()}
+                  disabled={dnsLoading}
+                  className="bg-blue-600 hover:bg-blue-500 text-white border-blue-600 text-xs py-1.5 px-3 flex items-center gap-1.5"
+                >
+                  <RefreshCw size={13} className={dnsLoading ? 'animate-spin' : ''} />
+                  {dnsLoading ? 'Checking...' : 'Check DNS'}
+                </Button>
+              </div>
+            </div>
+
+            {dnsResult && (
+              <div className="mt-4 pt-4 border-t border-border/40 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-foreground/60">Domain:</span>
+                  <span className="font-semibold text-foreground font-mono">{dnsResult.domain}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-foreground/60">Overall Score:</span>
+                  <span className={`px-2 py-0.5 rounded font-semibold text-[11px] ${
+                    dnsResult.score === 100 
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' 
+                      : dnsResult.score >= 50
+                      ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                      : 'bg-red-500/15 text-red-400 border border-red-500/30'
+                  }`}>
+                    {dnsResult.passed_count} / {dnsResult.total_checks} Passed ({dnsResult.score}%)
+                  </span>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* 4 DNS Metric Cards */}
+          {dnsResult && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {dnsResult.checks.map((check, idx) => (
+                <Card key={idx} className="p-5 border-card-border bg-surface flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        {check.status === 'pass' ? (
+                          <CheckCircle2 size={16} className="text-emerald-400" />
+                        ) : (
+                          <AlertTriangle size={16} className="text-amber-400" />
+                        )}
+                        {check.name}
+                      </span>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded uppercase ${
+                        check.status === 'pass' 
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      }`}>
+                        {check.status === 'pass' ? 'Pass' : 'Missing'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-foreground/70 leading-relaxed mt-1">
+                      {check.explanation}
+                    </p>
+
+                    <div className="mt-3 p-2.5 rounded bg-background/60 border border-border/30 text-[11px] space-y-1">
+                      <div className="text-foreground/50">Expected target:</div>
+                      <div className="font-mono text-foreground/80 break-all">{check.target}</div>
+                    </div>
+
+                    {check.record && (
+                      <div className="mt-2 p-2.5 rounded bg-foreground/[0.02] border border-border/20 text-[11px] space-y-1">
+                        <div className="text-emerald-400/80 font-medium">Record detected:</div>
+                        <div className="font-mono text-foreground/70 text-[10px] break-all">{check.record}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-border/40 text-[11px] text-foreground/60 flex items-center gap-1.5">
+                    <Info size={12} className="text-blue-400 shrink-0" />
+                    <span>{check.recommendation}</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: SPAM WORD & CONTENT SCANNER */}
+      {activeTab === 'spam' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            <Card className="p-5 border-card-border bg-surface space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Pre-Send Email Spam Scanner</h3>
+                <p className="text-xs text-foreground/50 mt-0.5">
+                  Paste your campaign subject line and body to test for spam trigger words, formatting penalties, and deliverability red flags.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-foreground/70 block mb-1">Subject Line</label>
+                  <input
+                    type="text"
+                    value={spamSubject}
+                    onChange={(e) => setSpamSubject(e.target.value)}
+                    placeholder="e.g. Exclusive invitation: Boost your team productivity"
+                    className="w-full bg-background border border-border/60 rounded-md px-3 py-2 text-xs text-foreground focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-foreground/70 block mb-1">Email Body (HTML or Plain Text)</label>
+                  <textarea
+                    rows={8}
+                    value={spamBody}
+                    onChange={(e) => setSpamBody(e.target.value)}
+                    placeholder="Paste your email draft content here..."
+                    className="w-full bg-background border border-border/60 rounded-md p-3 text-xs text-foreground focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    variant="custom"
+                    onClick={runSpamScan}
+                    disabled={spamLoading || (!spamSubject && !spamBody)}
+                    className="bg-blue-600 hover:bg-blue-500 text-white border-blue-600 text-xs py-2 px-4 flex items-center gap-2"
+                  >
+                    <Sparkles size={14} className={spamLoading ? 'animate-spin' : ''} />
+                    {spamLoading ? 'Analyzing Content...' : 'Scan Content for Spam Risk'}
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Results Sidebar */}
+          <div>
+            <Card className="p-5 border-card-border bg-surface space-y-5 sticky top-6">
+              <div>
+                <span className="text-xs font-semibold tracking-wider text-foreground/50 uppercase">Deliverability Score</span>
+                <div className="flex items-baseline space-x-2 mt-1">
+                  <span className="text-3xl font-bold text-foreground">
+                    {spamResult ? `${spamResult.score}/100` : '—'}
+                  </span>
+                  {spamResult && (
+                    <span className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                      spamResult.status_color === 'green' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                      spamResult.status_color === 'amber' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                      'bg-red-500/10 text-red-400 border border-red-500/20'
+                    }`}>
+                      {spamResult.rating}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-foreground/60 mt-2">
+                  {spamResult ? spamResult.rating_desc : 'Target: 85–100. Lower scores indicate high risk of landing in Spam.'}
+                </p>
+              </div>
+
+              {spamResult && (
+                <div className="space-y-3 pt-3 border-t border-border/40">
+                  <span className="text-xs font-semibold text-foreground block">
+                    Diagnostic Flags ({spamResult.flags.length})
+                  </span>
+
+                  {spamResult.flags.length === 0 ? (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded text-emerald-400 text-xs flex items-center gap-2">
+                      <CheckCircle2 size={16} />
+                      Zero spam trigger flags detected!
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
+                      {spamResult.flags.map((flag, i) => (
+                        <div key={i} className="p-3 rounded bg-background/60 border border-border/30 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-foreground flex items-center gap-1.5">
+                              <AlertTriangle size={13} className="text-amber-400" />
+                              {flag.title}
+                            </span>
+                            <span className="text-[10px] text-red-400 font-mono">-{flag.penalty} pts</span>
+                          </div>
+
+                          {flag.items && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {flag.items.map((item, idx) => (
+                                <span key={idx} className="bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono">
+                                  {item}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <p className="text-[11px] text-foreground/60">{flag.tip}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: CONTACT HYGIENE & DEDUPLICATOR */}
+      {activeTab === 'hygiene' && (
+        <div className="space-y-6">
+          <Card className="p-5 border-card-border bg-surface">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Contact List Hygiene &amp; Auto-Deduplicator</h3>
+                <p className="text-xs text-foreground/50 mt-0.5">
+                  Scans your database for popular domain typos (e.g. @gamil.com), invalid syntaxes, and duplicate emails across lists.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => runHygieneScan(true)}
+                  disabled={hygieneLoading}
+                  className="text-xs py-1.5 px-3 flex items-center gap-1.5"
+                >
+                  <RefreshCw size={13} className={hygieneLoading ? 'animate-spin' : ''} />
+                  {hygieneLoading ? 'Scanning...' : 'Scan Contacts'}
+                </Button>
+
+                {hygieneResult && (hygieneResult.typos_count > 0 || hygieneResult.duplicates_count > 0) && (
+                  <Button
+                    variant="custom"
+                    onClick={() => runHygieneScan(false)}
+                    disabled={fixingHygiene}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600 text-xs py-1.5 px-3 flex items-center gap-1.5"
+                  >
+                    <Check size={13} className={fixingHygiene ? 'animate-spin' : ''} />
+                    {fixingHygiene ? 'Fixing Contacts...' : 'Auto-Fix Typos & Deduplicate'}
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {fixSuccessMessage && (
+              <div className="mt-4 p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-xs flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <CheckCircle2 size={16} />
+                  {fixSuccessMessage}
+                </span>
+                <button onClick={() => setFixSuccessMessage(null)} className="text-foreground/50 hover:text-foreground text-xs">Dismiss</button>
+              </div>
+            )}
+
+            {/* Stat Row */}
+            {hygieneResult && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-5 border-t border-border/40">
+                <div className="p-3 bg-background/60 rounded-lg border border-border/30">
+                  <span className="text-[11px] text-foreground/50 block">Cleanliness Score</span>
+                  <span className="text-lg font-bold text-foreground mt-0.5 block">{hygieneResult.cleanliness_score}%</span>
+                  <span className="text-[10px] text-emerald-400 block mt-0.5">Target: 98%+ Valid</span>
+                </div>
+                <div className="p-3 bg-background/60 rounded-lg border border-border/30">
+                  <span className="text-[11px] text-foreground/50 block">Total Scanned</span>
+                  <span className="text-lg font-bold text-foreground mt-0.5 block">{hygieneResult.total_scanned}</span>
+                </div>
+                <div className="p-3 bg-background/60 rounded-lg border border-border/30">
+                  <span className="text-[11px] text-foreground/50 block">Domain Typos</span>
+                  <span className={`text-lg font-bold mt-0.5 block ${hygieneResult.typos_count > 0 ? 'text-amber-400' : 'text-foreground'}`}>
+                    {hygieneResult.typos_count}
+                  </span>
+                </div>
+                <div className="p-3 bg-background/60 rounded-lg border border-border/30">
+                  <span className="text-[11px] text-foreground/50 block">Duplicates</span>
+                  <span className={`text-lg font-bold mt-0.5 block ${hygieneResult.duplicates_count > 0 ? 'text-amber-400' : 'text-foreground'}`}>
+                    {hygieneResult.duplicates_count}
+                  </span>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Detailed Typos & Issues Table */}
+          {hygieneResult && hygieneResult.typos.length > 0 && (
+            <Card className="p-5 border-card-border bg-surface">
+              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">
+                Detected Domain Typos ({hygieneResult.typos.length})
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-border/40 text-foreground/50 uppercase text-[11px]">
+                      <th className="py-2 px-3">Contact</th>
+                      <th className="py-2 px-3">Current Email</th>
+                      <th className="py-2 px-3">Typo Found</th>
+                      <th className="py-2 px-3">Corrected Suggestion</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    {hygieneResult.typos.map((t) => (
+                      <tr key={t.id} className="hover:bg-foreground/[0.02]">
+                        <td className="py-2 px-3 font-medium text-foreground">{t.name || 'Unnamed'}</td>
+                        <td className="py-2 px-3 font-mono text-red-400">{t.original_email}</td>
+                        <td className="py-2 px-3 font-mono text-foreground/60">{t.typo}</td>
+                        <td className="py-2 px-3 font-mono text-emerald-400 font-semibold">{t.corrected_email}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {hygieneResult && hygieneResult.duplicates.length > 0 && (
+            <Card className="p-5 border-card-border bg-surface">
+              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">
+                Duplicate Email Contacts ({hygieneResult.duplicates.length})
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-border/40 text-foreground/50 uppercase text-[11px]">
+                      <th className="py-2 px-3">Name</th>
+                      <th className="py-2 px-3">Duplicate Email</th>
+                      <th className="py-2 px-3">Action Required</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/20">
+                    {hygieneResult.duplicates.map((d, i) => (
+                      <tr key={i} className="hover:bg-foreground/[0.02]">
+                        <td className="py-2 px-3 font-medium text-foreground">{d.name || 'Unnamed'}</td>
+                        <td className="py-2 px-3 font-mono text-amber-400">{d.email}</td>
+                        <td className="py-2 px-3 text-foreground/60">Merge into single contact</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {hygieneResult && hygieneResult.typos_count === 0 && hygieneResult.duplicates_count === 0 && (
+            <Card className="p-8 border-card-border bg-surface text-center">
+              <CheckCircle2 size={32} className="text-emerald-400 mx-auto mb-2" />
+              <h3 className="text-sm font-semibold text-foreground">Clean Subscriber List</h3>
+              <p className="text-xs text-foreground/50 mt-1">
+                Zero domain typos or duplicate email addresses were found across your database contacts.
+              </p>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* TAB 4: DATABASE BACKUP & EXPORT */}
+      {activeTab === 'backup' && (
+        <div className="space-y-6">
+          <Card className="p-6 border-card-border bg-surface space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Download size={16} className="text-blue-400" />
+                1-Click Database Export &amp; Backup
+              </h3>
+              <p className="text-xs text-foreground/50 mt-1">
+                Exports a structured JSON backup of your entire subscriber list, templates, and campaigns to your computer.
+              </p>
+            </div>
+
+            <div className="p-4 bg-background/60 rounded-lg border border-border/30 space-y-2 text-xs text-foreground/70">
+              <div className="font-semibold text-foreground">Included in this export:</div>
+              <ul className="list-disc pl-5 space-y-1 text-foreground/60">
+                <li>All Contacts &amp; Contact Lists (Email addresses, names, custom fields)</li>
+                <li>All Campaigns &amp; Scheduled Blasts (Subject lines, settings, delivery logs)</li>
+                <li>All Email Templates (HTML markup, CSS, and personalization tags)</li>
+                <li>Bounced &amp; Suppressed Email Records</li>
+              </ul>
+            </div>
+
+            <div className="pt-2">
+              <Button
+                variant="custom"
+                onClick={downloadBackup}
+                disabled={backupDownloading}
+                className="bg-blue-600 hover:bg-blue-500 text-white border-blue-600 text-xs py-2 px-4 flex items-center gap-2"
+              >
+                <Download size={14} className={backupDownloading ? 'animate-spin' : ''} />
+                {backupDownloading ? 'Generating Backup...' : 'Download Complete JSON Backup'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
