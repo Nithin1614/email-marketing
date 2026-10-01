@@ -4,11 +4,12 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Card from '../../components/Card';
 import Button from '../../components/Button';
-import { Plus, X, Send, AlertCircle, RefreshCw, ChartNoAxesCombined, Trash2, Zap, MailCheck } from 'lucide-react';
+import { Plus, X, Send, AlertCircle, RefreshCw, ChartNoAxesCombined, Trash2, Zap, MailCheck, Calendar, CalendarClock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '../../services/apiClient';
 import { Campaign, ContactList, EmailTemplate } from '../../types';
 import SendTestModal from '../../components/SendTestModal';
+import ScheduleModal from '../../components/ScheduleModal';
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -18,6 +19,7 @@ export default function CampaignsPage() {
   const [polling, setPolling] = useState(false);
   const [showMasterLinkModal, setShowMasterLinkModal] = useState(false);
   const [testModalCampaign, setTestModalCampaign] = useState<Campaign | null>(null);
+  const [scheduleModalCampaign, setScheduleModalCampaign] = useState<Campaign | null>(null);
   const router = useRouter();
 
   const [actionError, setActionError] = useState('');
@@ -183,13 +185,15 @@ export default function CampaignsPage() {
                     <div className="flex flex-col md:col-span-2 md:block">
                       <span className="md:hidden text-[10px] uppercase font-bold text-foreground/40 mb-1">Status</span>
                       <span className="capitalize text-xs">
-                        <span className={`px-2 py-0.5 border rounded-full inline-flex items-center space-x-1 ${
+                        <span className={`px-2.5 py-0.5 border rounded-full inline-flex items-center space-x-1 ${
                           c.status === 'sent' ? 'border-foreground text-foreground font-bold' :
                           c.status === 'sending' ? 'border-foreground/30 text-foreground/50 animate-pulse' :
+                          c.status === 'scheduled' ? 'border-indigo-500/30 text-indigo-400 bg-indigo-500/10 font-semibold' :
                           c.status === 'failed' ? 'border-red-900/40 text-red-500 font-bold' :
                           'border-border text-foreground/40'
                         }`}>
                           {c.status === 'sending' && <RefreshCw size={10} className="animate-spin mr-1" />}
+                          {c.status === 'scheduled' && <CalendarClock size={11} className="mr-1" />}
                           <span>{c.status}</span>
                         </span>
                       </span>
@@ -200,10 +204,22 @@ export default function CampaignsPage() {
                     </div>
                   </div>
 
-                  {/* Sent Date Group */}
+                  {/* Sent / Scheduled Date Group */}
                   <div className="flex flex-col md:col-span-2 md:block w-full mb-4 md:mb-0">
-                    <span className="md:hidden text-[10px] uppercase font-bold text-foreground/40 mb-1">Sent At</span>
-                    <span className="text-foreground/70">{c.sent_at ? new Date(c.sent_at).toLocaleDateString() : '—'}</span>
+                    <span className="md:hidden text-[10px] uppercase font-bold text-foreground/40 mb-1">
+                      {c.status === 'scheduled' ? 'Scheduled For' : 'Sent At'}
+                    </span>
+                    <span className="text-foreground/70 text-xs">
+                      {c.status === 'scheduled' && c.scheduled_at ? (
+                        <span className="text-indigo-400 font-medium">
+                          {new Date(c.scheduled_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      ) : c.sent_at ? (
+                        new Date(c.sent_at).toLocaleDateString()
+                      ) : (
+                        '—'
+                      )}
+                    </span>
                   </div>
 
                   {/* Actions Group */}
@@ -219,11 +235,58 @@ export default function CampaignsPage() {
                           <MailCheck size={12} />
                           <span>Send Test</span>
                         </Button>
+                        <Button
+                          variant="outline"
+                          className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10"
+                          onClick={() => setScheduleModalCampaign(c)}
+                          title="Schedule automated send"
+                        >
+                          <Calendar size={12} />
+                          <span>Schedule</span>
+                        </Button>
                         <Button variant="outline" className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center" onClick={() => handleConvertToAdvanced(c.id, c.name)}>
                           <Zap size={12} className="text-yellow-500" />
                           <span>To Advance</span>
                         </Button>
                         <Button variant="outline" className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center" onClick={() => handleSendCampaign(c.id)}>
+                          <Send size={12} />
+                          <span>Send Now</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="py-1.5 md:py-1 px-3 md:px-2 text-red-600 border-red-600/40 hover:bg-red-600 hover:text-white hover:border-red-600 w-full md:w-auto"
+                          onClick={() => handleDeleteCampaign(c)}
+                          title={`Delete ${c.name}`}
+                        >
+                          <Trash2 size={14} className="md:w-3.5 md:h-3.5 hidden md:block" />
+                          <span className="md:hidden ml-1">Delete</span>
+                        </Button>
+                      </div>
+                    ) : c.status === 'scheduled' ? (
+                      <div className="flex items-center md:justify-end gap-2 flex-wrap md:flex-nowrap">
+                        <Button
+                          variant="outline"
+                          className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center text-primary border-primary/30 hover:bg-primary/10"
+                          onClick={() => setTestModalCampaign(c)}
+                          title="Send a preview test email"
+                        >
+                          <MailCheck size={12} />
+                          <span>Send Test</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10 font-medium"
+                          onClick={() => setScheduleModalCampaign(c)}
+                          title="Edit scheduled time or cancel"
+                        >
+                          <CalendarClock size={12} />
+                          <span>Reschedule</span>
+                        </Button>
+                        <Button variant="outline" className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center" onClick={() => handleConvertToAdvanced(c.id, c.name)}>
+                          <Zap size={12} className="text-yellow-500" />
+                          <span>To Advance</span>
+                        </Button>
+                        <Button variant="outline" className="py-1.5 md:py-1 px-3 text-xs w-full md:w-auto justify-center" onClick={() => handleSendCampaign(c.id)} title="Send immediately now">
                           <Send size={12} />
                           <span>Send Now</span>
                         </Button>
@@ -279,6 +342,17 @@ export default function CampaignsPage() {
         onClose={() => setTestModalCampaign(null)}
         campaignId={testModalCampaign?.id ?? null}
         campaignName={testModalCampaign?.name ?? ''}
+      />
+
+      <ScheduleModal
+        isOpen={Boolean(scheduleModalCampaign)}
+        onClose={() => setScheduleModalCampaign(null)}
+        campaignId={scheduleModalCampaign?.id ?? null}
+        campaignName={scheduleModalCampaign?.name ?? ''}
+        currentScheduledAt={scheduleModalCampaign?.scheduled_at}
+        onScheduledSuccess={(updated) => {
+          setCampaigns(prev => prev.map(item => item.id === updated.id ? updated : item));
+        }}
       />
     </div>
   );

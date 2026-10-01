@@ -46,6 +46,50 @@ class SenderListView(APIView):
             return Response(fallback_senders)
 
 
+def check_and_send_due_campaigns():
+    """Checks for scheduled campaigns whose scheduled_at time has passed, and dispatches them."""
+    from django.utils import timezone
+    from django.db import close_old_connections
+    import threading
+    import logging
+
+    logger = logging.getLogger(__name__)
+    close_old_connections()
+    try:
+        now = timezone.now()
+        due_campaigns = list(Campaign.objects.filter(
+            status='scheduled',
+            scheduled_at__lte=now
+        ))
+        if not due_campaigns:
+            return 0
+
+        from .tasks import send_campaign_emails
+
+        for camp in due_campaigns:
+            camp.status = 'sending'
+            camp.save(update_fields=['status'])
+
+            def run_due_send(camp_id):
+                close_old_connections()
+                try:
+                    send_campaign_emails(camp_id)
+                except Exception as exc:
+                    logger.error("Error sending scheduled campaign %s: %s", camp_id, exc)
+                finally:
+                    close_old_connections()
+
+            threading.Thread(target=run_due_send, args=(camp.id,), daemon=True).start()
+
+        logger.info("Triggered %d scheduled campaign(s) for sending", len(due_campaigns))
+        return len(due_campaigns)
+    except Exception as e:
+        logger.error("Error in check_and_send_due_campaigns: %s", e)
+        return 0
+    finally:
+        close_old_connections()
+
+
 class CampaignViewSet(viewsets.ModelViewSet):
     serializer_class = CampaignSerializer
 
@@ -68,7 +112,7 @@ class CampaignViewSet(viewsets.ModelViewSet):
     def send(self, request, pk=None):
         campaign = self.get_object()
 
-        if campaign.status not in ('draft', 'failed'):
+        if campaign.status not in ('draft', 'failed', 'scheduled'):
             return Response(
                 {'error': f"Cannot send a campaign with status '{campaign.status}'."},
                 status=status.HTTP_400_BAD_REQUEST
@@ -201,6 +245,72 @@ class CampaignViewSet(viewsets.ModelViewSet):
             'status': 'success',
             'sent_to': emails,
             'message': f"Test email queued for {len(emails)} recipient(s)! Check your inbox shortly."
+        })
+
+    @action(detail=True, methods=['post'], url_path='schedule')
+    def schedule(self, request, pk=None):
+        campaign = self.get_object()
+        if campaign.status in ('sending', 'sent'):
+            return Response(
+                {'error': f"Cannot schedule a campaign with status '{campaign.status}'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        scheduled_at_str = request.data.get('scheduled_at')
+        if not scheduled_at_str:
+            return Response({'error': 'Please provide a scheduled_at date and time.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from django.utils.dateparse import parse_datetime
+        from django.utils import timezone
+
+        scheduled_dt = parse_datetime(scheduled_at_str)
+        if not scheduled_dt:
+            return Response({'error': 'Invalid date/time format. Please select a valid date and time.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if timezone.is_naive(scheduled_dt):
+            scheduled_dt = timezone.make_aware(scheduled_dt, timezone.get_current_timezone())
+
+        if scheduled_dt <= timezone.now():
+            return Response({'error': 'Scheduled time must be in the future.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        campaign.scheduled_at = scheduled_dt
+        campaign.status = 'scheduled'
+        campaign.save()
+
+        serializer = self.get_serializer(campaign)
+        return Response({
+            'status': 'success',
+            'message': f"Campaign scheduled for {scheduled_dt.strftime('%b %d, %Y at %I:%M %p')}.",
+            'campaign': serializer.data
+        })
+
+    @action(detail=True, methods=['post'], url_path='cancel-schedule')
+    def cancel_schedule(self, request, pk=None):
+        campaign = self.get_object()
+        if campaign.status != 'scheduled':
+            return Response(
+                {'error': f"Cannot cancel schedule for a campaign with status '{campaign.status}'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        campaign.status = 'draft'
+        campaign.scheduled_at = None
+        campaign.save()
+
+        serializer = self.get_serializer(campaign)
+        return Response({
+            'status': 'success',
+            'message': 'Schedule cancelled. Campaign reverted to draft.',
+            'campaign': serializer.data
+        })
+
+    @action(detail=False, methods=['get', 'post'], url_path='process-scheduled')
+    def process_scheduled(self, request):
+        count = check_and_send_due_campaigns()
+        return Response({
+            'status': 'success',
+            'triggered_count': count,
+            'message': f"Processed scheduled campaigns. Triggered {count} campaign(s)."
         })
 
     @action(detail=True, methods=['post'], url_path='convert-to-advanced')

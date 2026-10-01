@@ -21,6 +21,11 @@ from rest_framework.routers import DefaultRouter
 from rest_framework.authtoken.views import obtain_auth_token
 
 def health_check(request):
+    try:
+        from apps.campaigns.views import check_and_send_due_campaigns
+        check_and_send_due_campaigns()
+    except Exception:
+        pass
     return JsonResponse({"status": "ok", "app": "email-marketing"})
 
 from apps.contacts.views import ContactViewSet, ContactListViewSet, IgnoredContactViewSet, ContactBatchViewSet, MutualContactViewSet
